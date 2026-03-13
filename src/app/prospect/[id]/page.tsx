@@ -4,8 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getProspect, updateProspect, deleteProspect } from '@/lib/supabase'
 import type { Prospect, ProspectStatus } from '@/lib/types'
-import { ArrowLeft, Copy, Check, Send, CheckCircle, XCircle, Trash2, ExternalLink, Sparkles } from 'lucide-react'
-import { SourceBadge } from '@/components/SourceBadge'
+import { ArrowLeft, Copy, Check, Send, CheckCircle, XCircle, Trash2, ExternalLink, Sparkles, Calendar } from 'lucide-react'
 
 const STATUS_CONFIG: Record<ProspectStatus, { label: string; color: string }> = {
   discovered: { label: 'Découvert',  color: 'bg-sky-100 text-sky-700' },
@@ -126,7 +125,10 @@ export default function ProspectPage() {
               {prospect.niche}
             </span>
           )}
-          <SourceBadge source={prospect.source} />
+          <span className="flex items-center gap-1 text-xs text-stone-400">
+            <Calendar size={11} />
+            {new Date(prospect.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+          </span>
         </div>
         {prospect.profile_url && (
           <a

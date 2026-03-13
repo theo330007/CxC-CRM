@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Search, X } from 'lucide-react'
 import { getProspects } from '@/lib/supabase'
 import type { Prospect, ProspectStatus } from '@/lib/types'
-import { SourceBadge } from '@/components/SourceBadge'
 
 function formatDate(iso: string) {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })
@@ -133,14 +132,11 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
                   {formatDate(prospect.created_at)}
                 </span>
               </div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {prospect.niche && (
-                  <span className="inline-block bg-stone-100 text-stone-600 text-xs font-medium px-2.5 py-1 rounded-full">
-                    {prospect.niche}
-                  </span>
-                )}
-                <SourceBadge source={prospect.source} />
-              </div>
+              {prospect.niche && (
+                <span className="inline-block bg-stone-100 text-stone-600 text-xs font-medium px-2.5 py-1 rounded-full mb-3">
+                  {prospect.niche}
+                </span>
+              )}
               {prospect.bio_data && (
                 <p className="text-stone-500 text-sm line-clamp-2 leading-relaxed">
                   {prospect.bio_data}

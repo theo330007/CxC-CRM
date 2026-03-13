@@ -9,5 +9,4 @@ export interface Prospect {
   bio_data: string | null
   draft_message: string | null
   status: ProspectStatus
-  source: string | null
 }
