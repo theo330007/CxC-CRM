@@ -114,17 +114,16 @@ export default function ProspectPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ id: prospect.id, profile_url: prospect.profile_url }),
       })
-      const data = await res.json()
-      if (!res.ok) { setDeepSearchStatus('error'); return }
-      // If n8n returned contact data directly, fill in the fields
-      if (data.contact_email || data.phone) {
-        const patch: Partial<Prospect> = {}
-        if (data.contact_email) { setEmail(data.contact_email); patch.contact_email = data.contact_email }
-        if (data.phone) { setPhone(data.phone); patch.phone = data.phone }
-        await save(patch)
-        setDeepSearchStatus('found')
-      } else {
-        setDeepSearchStatus('running') // workflow running async, will update via n8n
+      if (!res.ok) { setDeepSearchStatus('error'); setDeepSearching(false); return }
+      // n8n responds immediately; workflow runs async and updates Supabase directly
+      // Wait 5s then re-fetch to pick up any newly found contact info
+      await new Promise(resolve => setTimeout(resolve, 5000))
+      const updated = await getProspect(id)
+      if (updated) {
+        setProspect(updated)
+        setEmail(updated.contact_email ?? '')
+        setPhone(updated.phone ?? '')
+        setDeepSearchStatus(updated.contact_email || updated.phone ? 'found' : 'notfound')
       }
     } catch {
       setDeepSearchStatus('error')
@@ -218,14 +217,14 @@ export default function ProspectPage() {
               </button>
             </div>
 
-            {deepSearchStatus === 'running' && !deepSearching && (
-              <p className="text-xs text-sky-600 bg-sky-50 rounded-lg px-3 py-2 mb-3">
-                ⏳ Workflow en cours — les coordonnées seront mises à jour automatiquement par n8n.
-              </p>
-            )}
             {deepSearchStatus === 'found' && (
               <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3">
-                ✓ Coordonnées trouvées et enregistrées.
+                Coordonnées trouvées et enregistrées.
+              </p>
+            )}
+            {deepSearchStatus === 'notfound' && (
+              <p className="text-xs text-amber-600 bg-amber-50 rounded-lg px-3 py-2 mb-3">
+                Aucune coordonnée trouvée cette fois.
               </p>
             )}
             {deepSearchStatus === 'error' && (
