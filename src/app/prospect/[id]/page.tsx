@@ -7,6 +7,7 @@ import type { Prospect, ProspectStatus } from '@/lib/types'
 import {
   ArrowLeft, Copy, Check, Send, CheckCircle, XCircle,
   Trash2, ExternalLink, Sparkles, Calendar, Star, AlertTriangle, Zap,
+  Mail, Phone, ScanSearch, Loader2,
 } from 'lucide-react'
 
 const STATUS_CONFIG: Record<ProspectStatus, { label: string; color: string }> = {
@@ -32,6 +33,8 @@ export default function ProspectPage() {
   const router = useRouter()
   const [prospect, setProspect] = useState<Prospect | null>(null)
   const [draft, setDraft] = useState('')
+  const [email, setEmail] = useState('')
+  const [phone, setPhone] = useState('')
   const [saving, setSaving] = useState(false)
   const [copied, setCopied] = useState(false)
   const [generating, setGenerating] = useState(false)
@@ -39,10 +42,12 @@ export default function ProspectPage() {
   const [analysis, setAnalysis] = useState<Analysis | null>(null)
   const [analysing, setAnalysing] = useState(false)
   const [analysisError, setAnalysisError] = useState('')
+  const [deepSearching, setDeepSearching] = useState(false)
+  const [deepSearchStatus, setDeepSearchStatus] = useState<'idle' | 'running' | 'found' | 'notfound' | 'error'>('idle')
 
   useEffect(() => {
     getProspect(id).then((p) => {
-      if (p) { setProspect(p); setDraft(p.draft_message ?? '') }
+      if (p) { setProspect(p); setDraft(p.draft_message ?? ''); setEmail(p.contact_email ?? ''); setPhone(p.phone ?? '') }
     })
   }, [id])
 
@@ -96,6 +101,35 @@ export default function ProspectPage() {
       setAnalysisError('Impossible de contacter le serveur.')
     } finally {
       setAnalysing(false)
+    }
+  }
+
+  async function deepSearch() {
+    if (!prospect) return
+    setDeepSearching(true)
+    setDeepSearchStatus('running')
+    try {
+      const res = await fetch('/api/deep-search', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: prospect.id, profile_url: prospect.profile_url }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setDeepSearchStatus('error'); return }
+      // If n8n returned contact data directly, fill in the fields
+      if (data.contact_email || data.phone) {
+        const patch: Partial<Prospect> = {}
+        if (data.contact_email) { setEmail(data.contact_email); patch.contact_email = data.contact_email }
+        if (data.phone) { setPhone(data.phone); patch.phone = data.phone }
+        await save(patch)
+        setDeepSearchStatus('found')
+      } else {
+        setDeepSearchStatus('running') // workflow running async, will update via n8n
+      }
+    } catch {
+      setDeepSearchStatus('error')
+    } finally {
+      setDeepSearching(false)
     }
   }
 
@@ -164,6 +198,69 @@ export default function ProspectPage() {
                   <span className="truncate">Voir le site / profil</span>
                 </a>
               )}
+            </div>
+          </div>
+
+          {/* Contact info */}
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Coordonnées</p>
+              <button
+                onClick={deepSearch}
+                disabled={deepSearching}
+                className="flex items-center gap-1 text-xs px-2 py-1 rounded-md bg-sky-50 border border-sky-200 text-sky-600 hover:bg-sky-100 transition-colors disabled:opacity-40"
+                title="Recherche approfondie — trouve l'email et le téléphone"
+              >
+                {deepSearching
+                  ? <><Loader2 size={11} className="animate-spin" /> Recherche…</>
+                  : <><ScanSearch size={11} /> Approfondir</>
+                }
+              </button>
+            </div>
+
+            {deepSearchStatus === 'running' && !deepSearching && (
+              <p className="text-xs text-sky-600 bg-sky-50 rounded-lg px-3 py-2 mb-3">
+                ⏳ Workflow en cours — les coordonnées seront mises à jour automatiquement par n8n.
+              </p>
+            )}
+            {deepSearchStatus === 'found' && (
+              <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3">
+                ✓ Coordonnées trouvées et enregistrées.
+              </p>
+            )}
+            {deepSearchStatus === 'error' && (
+              <p className="text-xs text-rose-600 bg-rose-50 rounded-lg px-3 py-2 mb-3">
+                Erreur lors de la recherche. Vérifiez que N8N_DEEP_SEARCH_URL est configuré.
+              </p>
+            )}
+
+            <div className="space-y-3">
+              <div>
+                <label className="flex items-center gap-1.5 text-xs text-stone-400 mb-1">
+                  <Mail size={12} /> Email
+                </label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={e => setEmail(e.target.value)}
+                  onBlur={() => save({ contact_email: email || null })}
+                  placeholder="email@exemple.com"
+                  className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sage-500 text-stone-800 placeholder-stone-300"
+                />
+              </div>
+              <div>
+                <label className="flex items-center gap-1.5 text-xs text-stone-400 mb-1">
+                  <Phone size={12} /> Téléphone
+                </label>
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={e => setPhone(e.target.value)}
+                  onBlur={() => save({ phone: phone || null })}
+                  placeholder="+33 6 00 00 00 00"
+                  className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-sage-500 text-stone-800 placeholder-stone-300"
+                />
+              </div>
             </div>
           </div>
 

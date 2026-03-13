@@ -1,7 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import { Search, MapPin, Sparkles, CheckCircle, AlertCircle, ChevronRight } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Search, MapPin, Sparkles, CheckCircle, AlertCircle, ChevronRight, Loader2 } from 'lucide-react'
 
 const KEYWORD_PRESETS = [
   'Naturopathe',
@@ -25,7 +25,9 @@ const LOCATION_PRESETS = [
   'France',
 ]
 
-type State = 'idle' | 'loading' | 'success' | 'error'
+type State = 'idle' | 'loading' | 'running' | 'success' | 'error'
+
+const WORKFLOW_DURATION = 45 // seconds to wait before showing "done"
 
 export default function SourcingPage() {
   const [keyword, setKeyword] = useState('')
@@ -33,6 +35,19 @@ export default function SourcingPage() {
   const [state, setState] = useState<State>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [lastSearch, setLastSearch] = useState<{ keyword: string; location: string } | null>(null)
+  const [countdown, setCountdown] = useState(WORKFLOW_DURATION)
+
+  useEffect(() => {
+    if (state !== 'running') return
+    setCountdown(WORKFLOW_DURATION)
+    const interval = setInterval(() => {
+      setCountdown(c => {
+        if (c <= 1) { clearInterval(interval); setState('success'); return 0 }
+        return c - 1
+      })
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [state])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
@@ -50,7 +65,7 @@ export default function SourcingPage() {
 
       if (res.ok) {
         setLastSearch({ keyword: keyword.trim(), location: location.trim() })
-        setState('success')
+        setState('running')
       } else {
         const data = await res.json()
         setErrorMsg(data.error ?? 'Une erreur est survenue.')
@@ -180,13 +195,13 @@ export default function SourcingPage() {
         {/* Submit */}
         <button
           type="submit"
-          disabled={state === 'loading' || !keyword.trim() || !location.trim()}
+          disabled={state === 'loading' || state === 'running' || !keyword.trim() || !location.trim()}
           className="w-full flex items-center justify-center gap-2 py-3 bg-sage-500 text-white font-medium rounded-lg hover:bg-sage-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {state === 'loading' ? (
             <>
-              <span className="animate-spin text-lg">⚙️</span>
-              Recherche en cours…
+              <Loader2 size={16} className="animate-spin" />
+              Connexion…
             </>
           ) : (
             <>
@@ -198,18 +213,44 @@ export default function SourcingPage() {
         </button>
       </form>
 
+      {/* Running */}
+      {state === 'running' && lastSearch && (
+        <div className="mt-5 bg-amber-50 border border-amber-200 rounded-xl p-5">
+          <div className="flex items-center gap-3 mb-3">
+            <Loader2 size={18} className="text-amber-600 shrink-0 animate-spin" />
+            <p className="text-sm font-medium text-amber-800">Workflow en cours…</p>
+          </div>
+          <p className="text-sm text-amber-700 mb-4">
+            Recherche de <span className="font-medium">&ldquo;{lastSearch.keyword}&rdquo;</span> à{' '}
+            <span className="font-medium">{lastSearch.location}</span> en cours.
+            Les profils seront ajoutés à <strong>Découverts</strong> automatiquement.
+          </p>
+          <div className="flex items-center gap-3">
+            <div className="flex-1 bg-amber-100 rounded-full h-2">
+              <div
+                className="bg-amber-400 h-2 rounded-full transition-all duration-1000"
+                style={{ width: `${((WORKFLOW_DURATION - countdown) / WORKFLOW_DURATION) * 100}%` }}
+              />
+            </div>
+            <span className="text-xs text-amber-600 shrink-0 tabular-nums">{countdown}s</span>
+          </div>
+          <p className="text-xs text-amber-500 mt-3">
+            ⏳ Patientez encore ~{countdown} secondes avant d&apos;aller dans{' '}
+            <a href="/discovered" className="underline font-medium">Découverts</a>.
+          </p>
+        </div>
+      )}
+
       {/* Success */}
       {state === 'success' && lastSearch && (
         <div className="mt-5 bg-green-50 border border-green-200 rounded-xl p-5 flex items-start gap-3">
           <CheckCircle size={18} className="text-green-600 shrink-0 mt-0.5" />
           <div>
-            <p className="text-sm font-medium text-green-800">Recherche lancée avec succès !</p>
+            <p className="text-sm font-medium text-green-800">Recherche terminée !</p>
             <p className="text-sm text-green-700 mt-1">
-              Le workflow cherche <span className="font-medium">&ldquo;{lastSearch.keyword}&rdquo;</span> à{' '}
-              <span className="font-medium">{lastSearch.location}</span>.
-              Les résultats apparaîtront dans l&apos;onglet{' '}
-              <a href="/discovered" className="underline font-medium">Découverts</a>{' '}
-              dans quelques instants.
+              Les profils <span className="font-medium">&ldquo;{lastSearch.keyword}&rdquo;</span> à{' '}
+              <span className="font-medium">{lastSearch.location}</span> ont été ajoutés.{' '}
+              <a href="/discovered" className="underline font-medium">Voir les Découverts →</a>
             </p>
           </div>
         </div>
