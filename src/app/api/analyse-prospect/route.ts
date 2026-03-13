@@ -11,14 +11,18 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Pas de bio disponible pour analyser.' }, { status: 400 })
   }
 
-  const prompt = `Tu es une assistante stratégique pour CamilleXCamille (CxC), une marque française de contenu bien-être qui cherche à collaborer avec des professionnels du bien-être (naturopathes, coachs, profs de yoga, sophrologues, etc.).
+  const prompt = `Tu es une assistante stratégique pour CamilleXCamille (CxC), un programme d'accompagnement entrepreneurial pour femmes du bien-être.
 
-CxC cherche des profils qui :
-- Sont dans la niche bien-être / santé naturelle / développement personnel
-- Ont une communauté (même petite) engagée
-- Partagent des valeurs de bienveillance, authenticité, lenteur, nature
-- Sont basés en France ou francophones
-- Pourraient être ouverts à une collaboration ou à recevoir une prestation CxC
+Positionnement CxC : "Nous aidons les femmes du bien-être à devenir entrepreneures grâce à un accompagnement qui allie profondeur humaine et stratégie entrepreneuriale."
+
+Ce que propose CxC : un programme structuré combinant diagnostic business, méthode pas à pas et accompagnement collectif — pour aider les femmes entrepreneures du bien-être à structurer leur activité sans renoncer à leur authenticité, et développer une vraie autonomie entrepreneuriale.
+
+CxC cherche des prospects qui :
+- Sont des femmes entrepreneures ou indépendantes dans le bien-être (naturopathes, coachs, sophrologues, profs de yoga, diététiciennes, thérapeutes, etc.)
+- Ont une activité déjà lancée mais qui cherchent à la structurer, la développer ou la rentabiliser
+- Semblent vouloir concilier impact, liberté et stabilité financière
+- Partagent des valeurs d'authenticité, d'accompagnement humain, de profondeur
+- Sont basées en France ou francophones
 
 Voici le profil à analyser :
 - Nom : ${name}

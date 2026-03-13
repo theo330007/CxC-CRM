@@ -71,7 +71,13 @@ export default function ProspectPage() {
       const res = await fetch('/api/generate-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: prospect.name, niche: prospect.niche, bio_data: prospect.bio_data, profile_url: prospect.profile_url }),
+        body: JSON.stringify({
+          name: prospect.name,
+          niche: prospect.niche,
+          bio_data: prospect.bio_data,
+          profile_url: prospect.profile_url,
+          analysis: analysis ?? null,
+        }),
       })
       if (res.ok) {
         const { message } = await res.json()
@@ -280,6 +286,175 @@ export default function ProspectPage() {
 
             {!analysis && !analysing && !analysisError && (
               <p className="text-xs text-stone-400 leading-relaxed">
+                Gemini évalue si ce profil est un bon match pour une collaboration CxC.
+              </p>
+            )}
+
+            {analysing && (
+              <div className="space-y-2 animate-pulse">
+                <div className="h-3 bg-stone-100 rounded w-3/4" />
+                <div className="h-3 bg-stone-100 rounded w-full" />
+                <div className="h-3 bg-stone-100 rounded w-2/3" />
+              </div>
+            )}
+
+            {analysisError && (
+              <p className="text-xs text-rose-600 bg-rose-50 rounded-lg p-3">{analysisError}</p>
+            )}
+
+            {analysis && (
+              <div className="space-y-3">
+                <div className={`rounded-lg px-3 py-2.5 flex items-center justify-between ${SCORE_COLORS[analysis.score]}`}>
+                  <span className="font-semibold text-sm">{analysis.verdict}</span>
+                  <div className="flex gap-0.5">
+                    {[1,2,3,4,5].map(i => (
+                      <Star key={i} size={13} className={i <= analysis.score ? 'fill-current' : 'opacity-25'} />
+                    ))}
+                  </div>
+                </div>
+                <p className="text-xs text-stone-600 leading-relaxed">{analysis.resume}</p>
+                {analysis.points_forts?.length > 0 && (
+                  <ul className="space-y-1">
+                    {analysis.points_forts.map((p, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-stone-700">
+                        <CheckCircle size={12} className="text-green-500 shrink-0 mt-0.5" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {analysis.points_attention?.length > 0 && (
+                  <ul className="space-y-1">
+                    {analysis.points_attention.map((p, i) => (
+                      <li key={i} className="flex items-start gap-2 text-xs text-stone-700">
+                        <AlertTriangle size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                        {p}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Status actions */}
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">Changer le statut</p>
+            <div className="flex flex-col gap-2">
+              <button onClick={() => save({ status: 'sent' })} disabled={saving || prospect.status === 'sent'}
+                className="flex items-center gap-2 px-3 py-2.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 active:scale-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed w-full">
+                <Send size={14} /> Marqué envoyé
+              </button>
+              <button onClick={() => save({ status: 'replied' })} disabled={saving || prospect.status === 'replied'}
+                className="flex items-center gap-2 px-3 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 active:scale-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed w-full">
+                <CheckCircle size={14} /> Répondu
+              </button>
+              <button onClick={() => save({ status: 'rejected' })} disabled={saving || prospect.status === 'rejected'}
+                className="flex items-center gap-2 px-3 py-2.5 bg-rose-600 text-white text-sm font-medium rounded-lg hover:bg-rose-700 active:scale-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed w-full">
+                <XCircle size={14} /> Rejeté
+              </button>
+              {prospect.status !== 'discovered' && (
+                <button onClick={() => save({ status: 'discovered' })} disabled={saving}
+                  className="flex items-center gap-2 px-3 py-2.5 bg-stone-100 text-stone-600 text-sm font-medium rounded-lg hover:bg-stone-200 active:scale-95 transition-all disabled:opacity-40 w-full">
+                  ↩ Remettre en découverts
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* ── RIGHT PANEL ── */}
+        <div className="space-y-5">
+
+          {/* Draft message — hero action, always first */}
+          <div className="bg-white rounded-xl border-2 border-sage-200 p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-semibold text-stone-700 uppercase tracking-wide">Message d&apos;approche</h2>
+              <div className="flex gap-2">
+                {draft && (
+                  <button onClick={copyDraft}
+                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">
+                    {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
+                    {copied ? 'Copié !' : 'Copier'}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Generate CTA — prominent when no draft yet */}
+            {!draft && !generating && (
+              <button
+                onClick={generateDraft}
+                className="w-full flex items-center justify-center gap-2 py-3 mb-4 bg-sage-500 text-white text-sm font-medium rounded-lg hover:bg-sage-700 transition-colors"
+              >
+                <Sparkles size={15} />
+                Générer un message avec l&apos;IA
+              </button>
+            )}
+
+            {generating && (
+              <div className="flex items-center gap-2 text-sm text-stone-400 py-3 mb-4">
+                <Loader2 size={15} className="animate-spin text-sage-500" />
+                Génération en cours…
+              </div>
+            )}
+
+            <textarea
+              value={draft}
+              onChange={e => setDraft(e.target.value)}
+              rows={draft ? 10 : 4}
+              className="w-full border border-stone-200 rounded-xl p-4 text-sm text-stone-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sage-500 resize-y"
+              placeholder="Rédigez votre message ici…"
+            />
+
+            <div className="flex items-center justify-between mt-3">
+              <button onClick={generateDraft} disabled={generating}
+                className="flex items-center gap-1.5 text-xs text-stone-400 hover:text-sage-600 transition-colors disabled:opacity-40">
+                <Sparkles size={12} />
+                {generating ? 'Génération…' : 'Regénérer'}
+              </button>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-stone-400">{draft.length} caractères</span>
+                <button
+                  onClick={() => save({ draft_message: draft, status: 'drafted' })}
+                  disabled={saving || !draft.trim()}
+                  className="px-4 py-2 bg-stone-800 text-white text-sm font-medium rounded-lg hover:bg-stone-900 transition-colors disabled:opacity-40"
+                >
+                  {saving ? 'Enregistrement…' : 'Sauvegarder'}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Bio */}
+          {prospect.bio_data ? (
+            <div className="bg-white rounded-xl border border-stone-200 p-6">
+              <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Bio / Description</h2>
+              <p className="text-stone-700 text-sm leading-[1.8] whitespace-pre-wrap">{prospect.bio_data}</p>
+            </div>
+          ) : (
+            <div className="bg-stone-50 rounded-xl border border-dashed border-stone-200 p-6 text-center text-stone-400 text-sm">
+              Aucune bio disponible pour ce prospect.
+            </div>
+          )}
+
+          {/* Gemini analysis */}
+          <div className="bg-white rounded-xl border border-stone-200 p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-semibold text-stone-700">Analyse CxC</h2>
+              <button
+                onClick={analyseProspect}
+                disabled={analysing || !prospect.bio_data}
+                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-40"
+                title={!prospect.bio_data ? 'Aucune bio disponible' : ''}
+              >
+                <Zap size={12} />
+                {analysing ? 'Analyse…' : 'Analyser'}
+              </button>
+            </div>
+
+            {!analysis && !analysing && !analysisError && (
+              <p className="text-xs text-stone-400 leading-relaxed">
                 Gemini analyse la bio du prospect et évalue si ce profil est un bon match pour une collaboration CxC.
               </p>
             )}
@@ -298,7 +473,6 @@ export default function ProspectPage() {
 
             {analysis && (
               <div className="space-y-4">
-                {/* Score */}
                 <div className={`rounded-lg px-4 py-3 flex items-center justify-between ${SCORE_COLORS[analysis.score]}`}>
                   <span className="font-semibold text-sm">{analysis.verdict}</span>
                   <div className="flex gap-0.5">
@@ -307,11 +481,7 @@ export default function ProspectPage() {
                     ))}
                   </div>
                 </div>
-
-                {/* Summary */}
                 <p className="text-sm text-stone-600 leading-relaxed">{analysis.resume}</p>
-
-                {/* Points forts */}
                 {analysis.points_forts?.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">Points forts</p>
@@ -325,8 +495,6 @@ export default function ProspectPage() {
                     </ul>
                   </div>
                 )}
-
-                {/* Points attention */}
                 {analysis.points_attention?.length > 0 && (
                   <div>
                     <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">Points d&apos;attention</p>
@@ -342,85 +510,6 @@ export default function ProspectPage() {
                 )}
               </div>
             )}
-          </div>
-
-          {/* Status actions */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-3">Changer le statut</p>
-            <div className="flex flex-col gap-2">
-              <button onClick={() => save({ status: 'sent' })} disabled={saving || prospect.status === 'sent'}
-                className="flex items-center gap-2 px-3 py-2 bg-violet-50 text-violet-700 text-sm font-medium rounded-lg hover:bg-violet-100 transition-colors disabled:opacity-40 w-full">
-                <Send size={14} /> Marqué envoyé
-              </button>
-              <button onClick={() => save({ status: 'replied' })} disabled={saving || prospect.status === 'replied'}
-                className="flex items-center gap-2 px-3 py-2 bg-green-50 text-green-700 text-sm font-medium rounded-lg hover:bg-green-100 transition-colors disabled:opacity-40 w-full">
-                <CheckCircle size={14} /> Répondu
-              </button>
-              <button onClick={() => save({ status: 'rejected' })} disabled={saving || prospect.status === 'rejected'}
-                className="flex items-center gap-2 px-3 py-2 bg-rose-50 text-rose-700 text-sm font-medium rounded-lg hover:bg-rose-100 transition-colors disabled:opacity-40 w-full">
-                <XCircle size={14} /> Rejeté
-              </button>
-              {prospect.status !== 'discovered' && (
-                <button onClick={() => save({ status: 'discovered' })} disabled={saving}
-                  className="flex items-center gap-2 px-3 py-2 bg-stone-50 text-stone-500 text-sm font-medium rounded-lg hover:bg-stone-100 transition-colors disabled:opacity-40 w-full">
-                  ↩ Remettre en découverts
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* ── RIGHT PANEL ── */}
-        <div className="space-y-5">
-
-          {/* Bio */}
-          {prospect.bio_data ? (
-            <div className="bg-white rounded-xl border border-stone-200 p-6">
-              <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide mb-4">Bio / Description</h2>
-              <p className="text-stone-700 text-base leading-[1.8] whitespace-pre-wrap">{prospect.bio_data}</p>
-            </div>
-          ) : (
-            <div className="bg-stone-50 rounded-xl border border-dashed border-stone-200 p-6 text-center text-stone-400 text-sm">
-              Aucune bio disponible pour ce prospect.
-            </div>
-          )}
-
-          {/* Draft message */}
-          <div className="bg-white rounded-xl border border-stone-200 p-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-semibold text-stone-500 uppercase tracking-wide">Message d&apos;approche</h2>
-              <div className="flex gap-2">
-                <button onClick={generateDraft} disabled={generating}
-                  className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-sage-300 text-sage-700 hover:bg-sage-50 transition-colors disabled:opacity-50">
-                  <Sparkles size={12} />
-                  {generating ? 'Génération…' : 'Générer avec IA'}
-                </button>
-                {draft && (
-                  <button onClick={copyDraft}
-                    className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg border border-stone-200 text-stone-600 hover:bg-stone-50 transition-colors">
-                    {copied ? <Check size={12} className="text-green-600" /> : <Copy size={12} />}
-                    {copied ? 'Copié !' : 'Copier'}
-                  </button>
-                )}
-              </div>
-            </div>
-            <textarea
-              value={draft}
-              onChange={e => setDraft(e.target.value)}
-              rows={10}
-              className="w-full border border-stone-200 rounded-xl p-4 text-sm text-stone-800 leading-relaxed focus:outline-none focus:ring-2 focus:ring-sage-500 resize-y"
-              placeholder="Rédigez votre message d'approche ici, ou utilisez l'IA pour en générer un…"
-            />
-            <div className="flex items-center justify-between mt-3">
-              <span className="text-xs text-stone-400">{draft.length} caractères</span>
-              <button
-                onClick={() => save({ draft_message: draft, status: 'drafted' })}
-                disabled={saving || !draft.trim()}
-                className="px-4 py-2 bg-stone-800 text-white text-sm font-medium rounded-lg hover:bg-stone-900 transition-colors disabled:opacity-40"
-              >
-                {saving ? 'Enregistrement…' : 'Sauvegarder le brouillon'}
-              </button>
-            </div>
           </div>
 
         </div>
