@@ -8,6 +8,12 @@ node_modules/
 .env.local
 .env*.local
 
+# deploy script (contains credentials — keep local only)
+deploy.py
+
+# local Claude Code settings
+.claude/settings.local.json
+
 # misc
 .DS_Store
 *.pem
