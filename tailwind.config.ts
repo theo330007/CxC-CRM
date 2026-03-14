@@ -10,13 +10,14 @@ const config: Config = {
     extend: {
       colors: {
         sage: {
-          300: '#a3b899',
-          500: '#7a9e6e',
-          700: '#4f6e46',
+          300: '#f2b8c6',
+          500: '#c9637e',
+          700: '#a04963',
         },
       },
       fontFamily: {
         sans: ['var(--font-inter)', 'sans-serif'],
+        serif: ['var(--font-playfair)', 'Georgia', 'serif'],
       },
     },
   },

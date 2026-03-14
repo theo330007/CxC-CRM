@@ -1,9 +1,10 @@
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
+import { Inter, Playfair_Display } from 'next/font/google'
 import './globals.css'
 import { Sidebar } from '@/components/Sidebar'
 
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const playfair = Playfair_Display({ subsets: ['latin'], variable: '--font-playfair' })
 
 export const metadata: Metadata = {
   title: 'CxC Outreach',
@@ -17,7 +18,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="fr">
-      <body className={`${inter.variable} font-sans bg-[#FAF9F6] text-stone-800 h-screen flex overflow-hidden`}>
+      <body suppressHydrationWarning className={`${inter.variable} ${playfair.variable} font-sans bg-[#FDF4F4] text-stone-800 h-screen flex overflow-hidden`}>
         <Sidebar />
         <main className="flex-1 overflow-y-auto">
           {children}

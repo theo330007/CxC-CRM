@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X } from 'lucide-react'
+import { Search, X, Instagram } from 'lucide-react'
 import { getProspects } from '@/lib/supabase'
 import type { Prospect, ProspectStatus } from '@/lib/types'
 
@@ -132,11 +132,23 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
                   {formatDate(prospect.created_at)}
                 </span>
               </div>
-              {prospect.niche && (
-                <span className="inline-block bg-stone-100 text-stone-600 text-xs font-medium px-2.5 py-1 rounded-full mb-3">
-                  {prospect.niche}
-                </span>
-              )}
+              <div className="flex flex-wrap items-center gap-2 mb-3">
+                {prospect.niche && (
+                  <span className="inline-block bg-stone-100 text-stone-600 text-xs font-medium px-2.5 py-1 rounded-full">
+                    {prospect.niche}
+                  </span>
+                )}
+                {prospect.source?.toLowerCase() === 'instagram' && (
+                  <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                    <Instagram size={10} /> Instagram
+                  </span>
+                )}
+                {prospect.source?.toLowerCase() === 'google' && (
+                  <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                    <Search size={10} /> Google
+                  </span>
+                )}
+              </div>
               {prospect.bio_data && (
                 <p className="text-stone-500 text-sm line-clamp-2 leading-relaxed">
                   {prospect.bio_data}

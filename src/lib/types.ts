@@ -11,4 +11,5 @@ export interface Prospect {
   status: ProspectStatus
   contact_email: string | null
   phone: string | null
+  source: string | null
 }
