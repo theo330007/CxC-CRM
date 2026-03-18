@@ -44,10 +44,18 @@ export default function ProspectPage() {
   const [analysisError, setAnalysisError] = useState('')
   const [deepSearching, setDeepSearching] = useState(false)
   const [deepSearchStatus, setDeepSearchStatus] = useState<'idle' | 'running' | 'found' | 'notfound' | 'error'>('idle')
+  const [showEmailSend, setShowEmailSend] = useState(false)
+  const [emailSubject, setEmailSubject] = useState('')
 
   useEffect(() => {
     getProspect(id).then((p) => {
-      if (p) { setProspect(p); setDraft(p.draft_message ?? ''); setEmail(p.contact_email ?? ''); setPhone(p.phone ?? '') }
+      if (p) {
+        setProspect(p)
+        setDraft(p.draft_message ?? '')
+        setEmail(p.contact_email ?? '')
+        setPhone(p.phone ?? '')
+        setEmailSubject(`Opportunité CxC — ${p.name}`)
+      }
     })
   }, [id])
 
@@ -136,6 +144,11 @@ export default function ProspectPage() {
     } finally {
       setDeepSearching(false)
     }
+  }
+
+  function openGmailCompose() {
+    const url = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(draft)}`
+    window.open(url, '_blank')
   }
 
   async function handleDelete() {
@@ -424,6 +437,53 @@ export default function ProspectPage() {
                 </button>
               </div>
             </div>
+
+            {/* Send by email */}
+            {draft && (
+              <div className="mt-4 border-t border-stone-100 pt-4">
+                {!showEmailSend ? (
+                  <button
+                    onClick={() => setShowEmailSend(true)}
+                    disabled={!email}
+                    title={!email ? 'Aucun email pour ce prospect' : ''}
+                    className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <Mail size={14} />
+                    {email ? 'Envoyer par email' : 'Envoyer par email (email manquant)'}
+                  </button>
+                ) : (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="text-xs text-stone-500 mb-1 block">Objet de l&apos;email</label>
+                      <input
+                        type="text"
+                        value={emailSubject}
+                        onChange={e => setEmailSubject(e.target.value)}
+                        placeholder="ex: Une opportunité pour votre activité"
+                        className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 text-stone-800 placeholder-stone-300"
+                      />
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={openGmailCompose}
+                        disabled={!emailSubject.trim()}
+                        className="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-40"
+                      >
+                        <Send size={14} />
+                        Ouvrir dans Gmail
+                      </button>
+                      <button
+                        onClick={() => setShowEmailSend(false)}
+                        className="text-xs text-stone-400 hover:text-stone-600 transition-colors"
+                      >
+                        Annuler
+                      </button>
+                    </div>
+                    <p className="text-xs text-stone-400">Gmail s&apos;ouvrira avec le message pré-rempli — il suffira de cliquer Envoyer.</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* Bio */}
@@ -437,80 +497,6 @@ export default function ProspectPage() {
               Aucune bio disponible pour ce prospect.
             </div>
           )}
-
-          {/* Gemini analysis */}
-          <div className="bg-white rounded-xl border border-stone-200 p-5">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold text-stone-700">Analyse CxC</h2>
-              <button
-                onClick={analyseProspect}
-                disabled={analysing || !prospect.bio_data}
-                className="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-200 text-violet-700 hover:bg-violet-100 transition-colors disabled:opacity-40"
-                title={!prospect.bio_data ? 'Aucune bio disponible' : ''}
-              >
-                <Zap size={12} />
-                {analysing ? 'Analyse…' : 'Analyser'}
-              </button>
-            </div>
-
-            {!analysis && !analysing && !analysisError && (
-              <p className="text-xs text-stone-400 leading-relaxed">
-                Gemini analyse la bio du prospect et évalue si ce profil est un bon match pour une collaboration CxC.
-              </p>
-            )}
-
-            {analysing && (
-              <div className="space-y-2 animate-pulse">
-                <div className="h-3 bg-stone-100 rounded w-3/4" />
-                <div className="h-3 bg-stone-100 rounded w-full" />
-                <div className="h-3 bg-stone-100 rounded w-2/3" />
-              </div>
-            )}
-
-            {analysisError && (
-              <p className="text-xs text-rose-600 bg-rose-50 rounded-lg p-3">{analysisError}</p>
-            )}
-
-            {analysis && (
-              <div className="space-y-4">
-                <div className={`rounded-lg px-4 py-3 flex items-center justify-between ${SCORE_COLORS[analysis.score]}`}>
-                  <span className="font-semibold text-sm">{analysis.verdict}</span>
-                  <div className="flex gap-0.5">
-                    {[1,2,3,4,5].map(i => (
-                      <Star key={i} size={14} className={i <= analysis.score ? 'fill-current' : 'opacity-25'} />
-                    ))}
-                  </div>
-                </div>
-                <p className="text-sm text-stone-600 leading-relaxed">{analysis.resume}</p>
-                {analysis.points_forts?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">Points forts</p>
-                    <ul className="space-y-1">
-                      {analysis.points_forts.map((p, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-stone-700">
-                          <CheckCircle size={13} className="text-green-500 shrink-0 mt-0.5" />
-                          {p}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {analysis.points_attention?.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-1.5">Points d&apos;attention</p>
-                    <ul className="space-y-1">
-                      {analysis.points_attention.map((p, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-stone-700">
-                          <AlertTriangle size={13} className="text-amber-500 shrink-0 mt-0.5" />
-                          {p}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
 
         </div>
       </div>

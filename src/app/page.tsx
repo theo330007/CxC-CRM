@@ -32,6 +32,33 @@ export default function Dashboard() {
         <p className="text-stone-500 text-sm mt-1">Vue d&apos;ensemble de votre pipeline d&apos;outreach</p>
       </div>
 
+      {/* Process steps */}
+      <div className="bg-white border border-stone-200 rounded-xl p-5 mb-8">
+        <h2 className="text-xs font-medium text-stone-400 uppercase tracking-wide mb-4">Comment ça marche</h2>
+        <div className="flex items-stretch gap-2">
+          {[
+            { number: '1', label: 'Sourcer', desc: 'Trouver des profils via Instagram ou Google', href: '/sourcing', color: 'bg-violet-100 text-violet-700' },
+            { number: '2', label: 'Découvrir', desc: 'Qualifier les prospects sourcés', href: '/discovered', color: 'bg-sky-100 text-sky-700' },
+            { number: '3', label: 'Traiter', desc: 'Rédiger et envoyer les messages', href: '/queue', color: 'bg-amber-100 text-amber-700' },
+          ].map((step, i, arr) => (
+            <div key={step.number} className="flex items-stretch gap-2 flex-1">
+              <Link href={step.href} className="flex-1 flex items-start gap-3 bg-stone-50 border border-stone-200 rounded-lg p-3 hover:border-stone-300 hover:bg-stone-100 transition-colors group h-full">
+                <span className={`text-xs font-bold px-2 py-1 rounded-md shrink-0 ${step.color}`}>{step.number}</span>
+                <div>
+                  <div className="text-sm font-semibold text-stone-700 group-hover:text-stone-900">{step.label}</div>
+                  <div className="text-xs text-stone-400 mt-0.5 leading-snug">{step.desc}</div>
+                </div>
+              </Link>
+              {i < arr.length - 1 && (
+                <svg className="shrink-0 text-stone-300" width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M6 3l5 5-5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
       {/* Pipeline cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 mb-10">
         {PIPELINE.map(({ status, label, href, color, bg }) => (

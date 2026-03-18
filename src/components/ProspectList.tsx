@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Instagram } from 'lucide-react'
+import { Search, X, Instagram, LayoutGrid, List } from 'lucide-react'
 import { getProspects } from '@/lib/supabase'
 import type { Prospect, ProspectStatus } from '@/lib/types'
 
@@ -26,6 +26,7 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
+  const [view, setView] = useState<'grid' | 'table'>('grid')
 
   useEffect(() => {
     setLoading(true)
@@ -63,20 +64,38 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
     <div>
       {/* Search + filters */}
       <div className="mb-5 space-y-3">
-        <div className="relative">
-          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Rechercher…"
-            className="w-full pl-9 pr-4 py-2 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
-          />
-          {search && (
-            <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
-              <X size={14} />
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Rechercher…"
+              className="w-full pl-9 pr-4 py-2 text-sm border border-stone-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-sage-500"
+            />
+            {search && (
+              <button onClick={() => setSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2 text-stone-400 hover:text-stone-600">
+                <X size={14} />
+              </button>
+            )}
+          </div>
+          <div className="flex border border-stone-200 rounded-lg overflow-hidden bg-white">
+            <button
+              onClick={() => setView('grid')}
+              className={`px-3 py-2 transition-colors ${view === 'grid' ? 'bg-stone-100 text-stone-800' : 'text-stone-400 hover:text-stone-600'}`}
+              title="Vue grille"
+            >
+              <LayoutGrid size={15} />
             </button>
-          )}
+            <button
+              onClick={() => setView('table')}
+              className={`px-3 py-2 transition-colors ${view === 'table' ? 'bg-stone-100 text-stone-800' : 'text-stone-400 hover:text-stone-600'}`}
+              title="Vue liste"
+            >
+              <List size={15} />
+            </button>
+          </div>
         </div>
         {niches.length > 0 && (
           <div className="flex flex-wrap gap-2">
@@ -116,7 +135,7 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
             {prospects.length === 0 ? 'Aucun prospect pour le moment.' : 'Essayez un autre filtre.'}
           </p>
         </div>
-      ) : (
+      ) : view === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((prospect) => (
             <button
@@ -156,6 +175,58 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
               )}
             </button>
           ))}
+        </div>
+      ) : (
+        <div className="bg-white border border-stone-200 rounded-xl overflow-hidden">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-stone-100 bg-stone-50 text-xs text-stone-500 font-medium uppercase tracking-wide">
+                <th className="text-left px-4 py-3">Nom</th>
+                <th className="text-left px-4 py-3">Niche</th>
+                <th className="text-left px-4 py-3">Source</th>
+                <th className="text-left px-4 py-3 hidden md:table-cell">Bio</th>
+                <th className="text-right px-4 py-3">Ajouté</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {filtered.map((prospect) => (
+                <tr
+                  key={prospect.id}
+                  onClick={() => router.push(`/prospect/${prospect.id}`)}
+                  className="hover:bg-stone-50 cursor-pointer transition-colors group"
+                >
+                  <td className="px-4 py-3 font-medium text-stone-800 group-hover:text-sage-700 whitespace-nowrap">
+                    {prospect.name}
+                  </td>
+                  <td className="px-4 py-3">
+                    {prospect.niche
+                      ? <span className="bg-stone-100 text-stone-600 text-xs font-medium px-2 py-0.5 rounded-full">{prospect.niche}</span>
+                      : <span className="text-stone-300">—</span>
+                    }
+                  </td>
+                  <td className="px-4 py-3">
+                    {prospect.source?.toLowerCase() === 'instagram' && (
+                      <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                        <Instagram size={10} /> Instagram
+                      </span>
+                    )}
+                    {prospect.source?.toLowerCase() === 'google' && (
+                      <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                        <Search size={10} /> Google
+                      </span>
+                    )}
+                    {!prospect.source && <span className="text-stone-300">—</span>}
+                  </td>
+                  <td className="px-4 py-3 text-stone-500 max-w-xs hidden md:table-cell">
+                    <span className="line-clamp-1">{prospect.bio_data ?? '—'}</span>
+                  </td>
+                  <td className="px-4 py-3 text-stone-400 text-xs text-right whitespace-nowrap">
+                    {formatDate(prospect.created_at)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
