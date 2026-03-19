@@ -62,6 +62,7 @@ export default function SourcingPage() {
   // Shared fields for both sources
   const [keyword, setKeyword] = useState('')
   const [location, setLocation] = useState('')
+  const [country, setCountry] = useState('France')
 
   // Instagram-specific
   const [igMode, setIgMode] = useState<IgMode>('hashtag')
@@ -116,6 +117,7 @@ export default function SourcingPage() {
 
     try {
       const body: Record<string, string> = { keyword: keyword.trim(), location: location.trim(), source }
+      if (source === 'google') body.country = country.trim() || 'France'
       if (source === 'instagram') body.mode = igMode
 
       const res = await fetch('/api/trigger-sourcing', {
@@ -315,6 +317,28 @@ export default function SourcingPage() {
                 </div>
               </div>
 
+              {/* Country — Google only */}
+              {!isInstagram && (
+                <div>
+                  <label className="block text-sm font-medium text-stone-700 mb-1">Pays</label>
+                  <div className="relative mb-3">
+                    <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                    <input
+                      type="text"
+                      value={country}
+                      onChange={e => setCountry(e.target.value)}
+                      placeholder="ex. France, Belgique, Suisse…"
+                      className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {['France', 'Belgique', 'Suisse', 'Canada'].map(c => (
+                      <Pill key={c} label={c} active={country === c} onClick={() => setCountry(c)} />
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {/* Instagram mode toggle */}
               {isInstagram && (
                 <div>
@@ -359,7 +383,7 @@ export default function SourcingPage() {
                       ? <>Hashtag : <span className="font-semibold text-stone-700">{toHashtag(keyword, location)}</span></>
                       : <>Recherche profils : <span className="font-semibold text-stone-700">&ldquo;{keyword} {location}&rdquo;</span></>
                   ) : (
-                    <>Recherche : <span className="font-semibold text-stone-700">&ldquo;{keyword} {location}&rdquo;</span></>
+                    <>Recherche : <span className="font-semibold text-stone-700">&ldquo;{keyword} {location}, {country || 'France'}&rdquo;</span></>
                   )}
                 </div>
               )}

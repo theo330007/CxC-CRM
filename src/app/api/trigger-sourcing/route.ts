@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 export async function POST(req: NextRequest) {
-  const { source, keyword, location, mode } = await req.json()
+  const { source, keyword, location, country, mode } = await req.json()
 
   if (!keyword || !location) {
     return NextResponse.json({ error: 'Keyword et location requis' }, { status: 400 })
@@ -20,6 +20,7 @@ export async function POST(req: NextRequest) {
   }
 
   const payload: Record<string, string> = { keyword, location, source }
+  if (source === 'google') payload.country = country || 'France'
   if (source === 'instagram' && mode) payload.mode = mode
 
   const res = await fetch(webhookUrl, {
