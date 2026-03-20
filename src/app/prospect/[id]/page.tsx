@@ -46,6 +46,8 @@ export default function ProspectPage() {
   const [deepSearchStatus, setDeepSearchStatus] = useState<'idle' | 'running' | 'found' | 'notfound' | 'error'>('idle')
   const [showEmailSend, setShowEmailSend] = useState(false)
   const [emailSubject, setEmailSubject] = useState('')
+  const [suggestingSubject, setSuggestingSubject] = useState(false)
+  const [subjectSuggestions, setSubjectSuggestions] = useState<string[]>([])
 
   useEffect(() => {
     getProspect(id).then((p) => {
@@ -143,6 +145,25 @@ export default function ProspectPage() {
       setDeepSearchStatus('error')
     } finally {
       setDeepSearching(false)
+    }
+  }
+
+  async function suggestSubjects() {
+    if (!prospect) return
+    setSuggestingSubject(true)
+    setSubjectSuggestions([])
+    try {
+      const res = await fetch('/api/suggest-subject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: prospect.name, niche: prospect.niche, draft }),
+      })
+      if (res.ok) {
+        const { subjects } = await res.json()
+        setSubjectSuggestions(subjects)
+      }
+    } finally {
+      setSuggestingSubject(false)
     }
   }
 
@@ -356,7 +377,7 @@ export default function ProspectPage() {
             <div className="flex flex-col gap-2">
               <button onClick={() => save({ status: 'sent' })} disabled={saving || prospect.status === 'sent'}
                 className="flex items-center gap-2 px-3 py-2.5 bg-violet-600 text-white text-sm font-medium rounded-lg hover:bg-violet-700 active:scale-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed w-full">
-                <Send size={14} /> Marqué envoyé
+                <Send size={14} /> Marquer envoyé
               </button>
               <button onClick={() => save({ status: 'replied' })} disabled={saving || prospect.status === 'replied'}
                 className="flex items-center gap-2 px-3 py-2.5 bg-green-600 text-white text-sm font-medium rounded-lg hover:bg-green-700 active:scale-95 transition-all shadow-sm disabled:opacity-40 disabled:cursor-not-allowed w-full">
@@ -391,6 +412,35 @@ export default function ProspectPage() {
                     {copied ? 'Copié !' : 'Copier'}
                   </button>
                 )}
+              </div>
+            </div>
+
+            {/* Templates */}
+            <div className="mb-4">
+              <p className="text-xs text-stone-400 mb-2">Templates de départ</p>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  {
+                    label: 'Découverte douce',
+                    text: `Bonjour ${prospect?.name?.split(' ')[0] ?? ''},\n\nJ'ai découvert votre profil et j'ai été touchée par votre approche — ce que vous faites résonne vraiment avec les femmes que j'accompagne.\n\nJe co-fonde CamilleXCamille, un programme pour les entrepreneures du bien-être qui veulent structurer leur activité sans perdre leur authenticité.\n\nSeriez-vous ouverte à en discuter quelques minutes ?`,
+                  },
+                  {
+                    label: 'Valorisation profil',
+                    text: `Bonjour ${prospect?.name?.split(' ')[0] ?? ''},\n\nVotre travail autour de ${prospect?.niche ?? 'votre activité'} m'a vraiment interpellée — il y a quelque chose d'authentique dans ce que vous portez.\n\nAvec CamilleXCamille, j'aide des femmes comme vous à donner une vraie structure à leur activité, pour aller encore plus loin.\n\nÇa vous dirait qu'on échange ?`,
+                  },
+                  {
+                    label: 'Directe & courte',
+                    text: `Bonjour ${prospect?.name?.split(' ')[0] ?? ''},\n\nJe travaille avec des entrepreneures du bien-être pour les aider à structurer et développer leur activité — et votre profil a retenu mon attention.\n\nSi vous êtes ouverte à en savoir plus, je serais ravie d'échanger avec vous.`,
+                  },
+                ].map(({ label, text }) => (
+                  <button
+                    key={label}
+                    onClick={() => setDraft(text)}
+                    className="text-xs px-2.5 py-1 rounded-full border border-stone-200 text-stone-600 bg-stone-50 hover:border-sage-300 hover:text-sage-700 transition-colors"
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -454,7 +504,17 @@ export default function ProspectPage() {
                 ) : (
                   <div className="space-y-3">
                     <div>
-                      <label className="text-xs text-stone-500 mb-1 block">Objet de l&apos;email</label>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="text-xs text-stone-500">Objet de l&apos;email</label>
+                        <button
+                          onClick={suggestSubjects}
+                          disabled={suggestingSubject}
+                          className="flex items-center gap-1 text-xs text-violet-600 hover:text-violet-800 transition-colors disabled:opacity-40"
+                        >
+                          <Sparkles size={11} />
+                          {suggestingSubject ? 'Génération…' : 'Suggérer'}
+                        </button>
+                      </div>
                       <input
                         type="text"
                         value={emailSubject}
@@ -462,6 +522,19 @@ export default function ProspectPage() {
                         placeholder="ex: Une opportunité pour votre activité"
                         className="w-full text-sm border border-stone-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-400 text-stone-800 placeholder-stone-300"
                       />
+                      {subjectSuggestions.length > 0 && (
+                        <div className="mt-2 space-y-1">
+                          {subjectSuggestions.map((s, i) => (
+                            <button
+                              key={i}
+                              onClick={() => { setEmailSubject(s); setSubjectSuggestions([]) }}
+                              className="w-full text-left text-xs px-3 py-1.5 rounded-lg bg-violet-50 border border-violet-100 text-violet-700 hover:bg-violet-100 transition-colors"
+                            >
+                              {s}
+                            </button>
+                          ))}
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-2">
                       <button

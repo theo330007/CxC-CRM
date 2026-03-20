@@ -2,8 +2,8 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Instagram, LayoutGrid, List } from 'lucide-react'
-import { getProspects } from '@/lib/supabase'
+import { Search, X, Instagram, LayoutGrid, List, CheckCircle, XCircle } from 'lucide-react'
+import { getProspects, updateProspect } from '@/lib/supabase'
 import type { Prospect, ProspectStatus } from '@/lib/types'
 
 function formatDate(iso: string) {
@@ -21,17 +21,25 @@ function SkeletonCard() {
   )
 }
 
-export function ProspectList({ status }: { status: ProspectStatus[] }) {
+export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[]; lastSearchTs?: number }) {
   const router = useRouter()
   const [prospects, setProspects] = useState<Prospect[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [view, setView] = useState<'grid' | 'table'>('grid')
+  const [activeNiche, setActiveNiche] = useState<string | null>(null)
+  const [activeSource, setActiveSource] = useState<string | null>(null)
 
   useEffect(() => {
     setLoading(true)
     getProspects(status).then(setProspects).finally(() => setLoading(false))
   }, [status.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function quickAction(e: React.MouseEvent, prospect: Prospect, newStatus: ProspectStatus) {
+    e.stopPropagation()
+    await updateProspect(prospect.id, { status: newStatus })
+    setProspects(prev => prev.filter(p => p.id !== prospect.id))
+  }
 
   // Unique niches for filter chips
   const niches = useMemo(() => {
@@ -39,7 +47,10 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
     return [...new Set(all)].sort()
   }, [prospects])
 
-  const [activeNiche, setActiveNiche] = useState<string | null>(null)
+  const sources = useMemo(() => {
+    const all = prospects.map(p => p.source?.toLowerCase()).filter(Boolean) as string[]
+    return [...new Set(all)].sort()
+  }, [prospects])
 
   const filtered = useMemo(() => {
     return prospects.filter(p => {
@@ -48,9 +59,11 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
         (p.niche ?? '').toLowerCase().includes(search.toLowerCase()) ||
         (p.bio_data ?? '').toLowerCase().includes(search.toLowerCase())
       const matchNiche = !activeNiche || p.niche === activeNiche
-      return matchSearch && matchNiche
+      const matchSource = !activeSource || p.source?.toLowerCase() === activeSource
+      const matchLastSearch = !lastSearchTs || new Date(p.created_at).getTime() >= lastSearchTs
+      return matchSearch && matchNiche && matchSource && matchLastSearch
     })
-  }, [prospects, search, activeNiche])
+  }, [prospects, search, activeNiche, activeSource, lastSearchTs])
 
   if (loading) {
     return (
@@ -81,39 +94,49 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
             )}
           </div>
           <div className="flex border border-stone-200 rounded-lg overflow-hidden bg-white">
-            <button
-              onClick={() => setView('grid')}
-              className={`px-3 py-2 transition-colors ${view === 'grid' ? 'bg-stone-100 text-stone-800' : 'text-stone-400 hover:text-stone-600'}`}
-              title="Vue grille"
-            >
+            <button onClick={() => setView('grid')} className={`px-3 py-2 transition-colors ${view === 'grid' ? 'bg-stone-100 text-stone-800' : 'text-stone-400 hover:text-stone-600'}`} title="Vue grille">
               <LayoutGrid size={15} />
             </button>
-            <button
-              onClick={() => setView('table')}
-              className={`px-3 py-2 transition-colors ${view === 'table' ? 'bg-stone-100 text-stone-800' : 'text-stone-400 hover:text-stone-600'}`}
-              title="Vue liste"
-            >
+            <button onClick={() => setView('table')} className={`px-3 py-2 transition-colors ${view === 'table' ? 'bg-stone-100 text-stone-800' : 'text-stone-400 hover:text-stone-600'}`} title="Vue liste">
               <List size={15} />
             </button>
           </div>
         </div>
-        {niches.length > 0 && (
-          <div className="flex flex-wrap gap-2">
-            {niches.map(niche => (
-              <button
-                key={niche}
-                onClick={() => setActiveNiche(activeNiche === niche ? null : niche)}
-                className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                  activeNiche === niche
-                    ? 'bg-sage-500 text-white border-sage-500'
-                    : 'bg-white text-stone-600 border-stone-200 hover:border-sage-300'
-                }`}
-              >
-                {niche}
-              </button>
-            ))}
-          </div>
-        )}
+        <div className="flex flex-wrap gap-2">
+          {/* Source filters */}
+          {sources.includes('google') && (
+            <button
+              onClick={() => setActiveSource(activeSource === 'google' ? null : 'google')}
+              className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                activeSource === 'google' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-stone-600 border-stone-200 hover:border-blue-300'
+              }`}
+            >
+              Google
+            </button>
+          )}
+          {sources.includes('instagram') && (
+            <button
+              onClick={() => setActiveSource(activeSource === 'instagram' ? null : 'instagram')}
+              className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                activeSource === 'instagram' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-stone-600 border-stone-200 hover:border-rose-300'
+              }`}
+            >
+              Instagram
+            </button>
+          )}
+          {/* Niche filters */}
+          {niches.map(niche => (
+            <button
+              key={niche}
+              onClick={() => setActiveNiche(activeNiche === niche ? null : niche)}
+              className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
+                activeNiche === niche ? 'bg-sage-500 text-white border-sage-500' : 'bg-white text-stone-600 border-stone-200 hover:border-sage-300'
+              }`}
+            >
+              {niche}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Count */}
@@ -138,42 +161,61 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
       ) : view === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((prospect) => (
-            <button
-              key={prospect.id}
-              onClick={() => router.push(`/prospect/${prospect.id}`)}
-              className="bg-white rounded-xl border border-stone-200 p-5 text-left hover:shadow-md hover:border-sage-300 transition-all cursor-pointer group"
-            >
-              <div className="flex items-start justify-between gap-2 mb-2">
-                <span className="font-semibold text-stone-800 group-hover:text-sage-700 transition-colors">
-                  {prospect.name}
-                </span>
-                <span className="text-xs text-stone-400 shrink-0 mt-0.5">
-                  {formatDate(prospect.created_at)}
-                </span>
+            <div key={prospect.id} className="relative bg-white rounded-xl border border-stone-200 hover:shadow-md hover:border-sage-300 transition-all group">
+              <button
+                onClick={() => router.push(`/prospect/${prospect.id}`)}
+                className="w-full text-left p-5"
+              >
+                <div className="flex items-start justify-between gap-2 mb-2">
+                  <span className="font-semibold text-stone-800 group-hover:text-sage-700 transition-colors">
+                    {prospect.name}
+                  </span>
+                  <span className="text-xs text-stone-400 shrink-0 mt-0.5">
+                    {formatDate(prospect.created_at)}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  {prospect.niche && (
+                    <span className="inline-block bg-stone-100 text-stone-600 text-xs font-medium px-2.5 py-1 rounded-full">
+                      {prospect.niche}
+                    </span>
+                  )}
+                  {prospect.source?.toLowerCase() === 'instagram' && (
+                    <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                      <Instagram size={10} /> Instagram
+                    </span>
+                  )}
+                  {prospect.source?.toLowerCase() === 'google' && (
+                    <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-full">
+                      <Search size={10} /> Google
+                    </span>
+                  )}
+                </div>
+                {prospect.bio_data && (
+                  <p className="text-stone-500 text-sm line-clamp-2 leading-relaxed">
+                    {prospect.bio_data}
+                  </p>
+                )}
+              </button>
+              {/* Quick actions */}
+              <div className="flex border-t border-stone-100">
+                <button
+                  onClick={(e) => quickAction(e, prospect, 'drafted')}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors rounded-bl-xl"
+                  title="Pertinent — ajouter à la file"
+                >
+                  <CheckCircle size={13} /> Pertinent
+                </button>
+                <div className="w-px bg-stone-100" />
+                <button
+                  onClick={(e) => quickAction(e, prospect, 'rejected')}
+                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-500 hover:bg-rose-50 transition-colors rounded-br-xl"
+                  title="Rejeter"
+                >
+                  <XCircle size={13} /> Rejeter
+                </button>
               </div>
-              <div className="flex flex-wrap items-center gap-2 mb-3">
-                {prospect.niche && (
-                  <span className="inline-block bg-stone-100 text-stone-600 text-xs font-medium px-2.5 py-1 rounded-full">
-                    {prospect.niche}
-                  </span>
-                )}
-                {prospect.source?.toLowerCase() === 'instagram' && (
-                  <span className="inline-flex items-center gap-1 bg-rose-100 text-rose-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                    <Instagram size={10} /> Instagram
-                  </span>
-                )}
-                {prospect.source?.toLowerCase() === 'google' && (
-                  <span className="inline-flex items-center gap-1 bg-blue-100 text-blue-600 text-xs font-medium px-2 py-0.5 rounded-full">
-                    <Search size={10} /> Google
-                  </span>
-                )}
-              </div>
-              {prospect.bio_data && (
-                <p className="text-stone-500 text-sm line-clamp-2 leading-relaxed">
-                  {prospect.bio_data}
-                </p>
-              )}
-            </button>
+            </div>
           ))}
         </div>
       ) : (
@@ -186,6 +228,7 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
                 <th className="text-left px-4 py-3">Source</th>
                 <th className="text-left px-4 py-3 hidden md:table-cell">Bio</th>
                 <th className="text-right px-4 py-3">Ajouté</th>
+                <th className="px-4 py-3"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-stone-100">
@@ -222,6 +265,22 @@ export function ProspectList({ status }: { status: ProspectStatus[] }) {
                   </td>
                   <td className="px-4 py-3 text-stone-400 text-xs text-right whitespace-nowrap">
                     {formatDate(prospect.created_at)}
+                  </td>
+                  <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
+                    <div className="flex gap-1">
+                      <button
+                        onClick={(e) => quickAction(e, prospect, 'drafted')}
+                        className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-green-600 hover:bg-green-50 border border-green-200 transition-colors"
+                      >
+                        <CheckCircle size={12} /> Pertinent
+                      </button>
+                      <button
+                        onClick={(e) => quickAction(e, prospect, 'rejected')}
+                        className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-50 border border-rose-200 transition-colors"
+                      >
+                        <XCircle size={12} /> Rejeter
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}

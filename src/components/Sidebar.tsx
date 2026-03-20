@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Sparkles, Inbox, CheckCircle, LayoutDashboard, Search } from 'lucide-react'
+import { Sparkles, Inbox, CheckCircle, LayoutDashboard, Search, XCircle } from 'lucide-react'
 import { getProspectCounts } from '@/lib/supabase'
 import type { ProspectStatus } from '@/lib/types'
 
@@ -13,6 +13,7 @@ const navItems = [
   { href: '/discovered', label: 'Découverts',      Icon: Sparkles,        badge: 'discovered' as ProspectStatus },
   { href: '/queue',      label: "File d'attente",  Icon: Inbox,           badge: 'drafted' as ProspectStatus },
   { href: '/sent',       label: 'Envoyés',         Icon: CheckCircle,     badge: null as ProspectStatus | null },
+  { href: '/rejected',   label: 'Rejetés',         Icon: XCircle,         badge: 'rejected' as ProspectStatus },
 ]
 
 export function Sidebar() {

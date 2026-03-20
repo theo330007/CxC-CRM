@@ -94,29 +94,6 @@ export default function Dashboard() {
           <div className="text-sm text-stone-500 mt-1">À traiter</div>
         </div>
       </div>
-
-      {/* Pipeline visual */}
-      <div className="bg-white rounded-xl border border-stone-200 p-5">
-        <h2 className="text-sm font-medium text-stone-600 mb-4">Funnel</h2>
-        {counts && total > 0 ? (
-          <div className="space-y-2">
-            {PIPELINE.filter(p => counts[p.status] > 0).map(({ status, label, color }) => (
-              <div key={status} className="flex items-center gap-3">
-                <div className="w-24 text-xs text-stone-500 text-right">{label}</div>
-                <div className="flex-1 bg-stone-100 rounded-full h-5 overflow-hidden">
-                  <div
-                    className={`h-full rounded-full ${color.replace('text-', 'bg-').replace('-700', '-400')}`}
-                    style={{ width: `${Math.max(4, (counts[status] / total) * 100)}%` }}
-                  />
-                </div>
-                <div className="w-6 text-xs font-medium text-stone-700">{counts[status]}</div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <p className="text-stone-400 text-sm">Aucune donnée pour le moment.</p>
-        )}
-      </div>
     </div>
   )
 }

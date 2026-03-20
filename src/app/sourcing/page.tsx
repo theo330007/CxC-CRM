@@ -10,7 +10,7 @@ import {
 const KEYWORD_PRESETS = [
   'Naturopathe', 'Coach bien-être', 'Professeure de yoga',
   'Sophrologue', 'Diététicienne', 'Ostéopathe',
-  'Coach nutrition', 'Méditation',
+  'Coach nutrition', 'Coach sportif', 'Psychologue',
 ]
 
 const LOCATION_PRESETS = [
@@ -60,9 +60,12 @@ export default function SourcingPage() {
   const [source, setSource] = useState<Source | null>(null)
 
   // Shared fields for both sources
-  const [keyword, setKeyword] = useState('')
+  const [keyword, setKeyword] = useState('')       // Instagram only
+  const [keywords, setKeywords] = useState<string[]>([])  // Google multi-select
+  const [keywordInput, setKeywordInput] = useState('')    // Google text input
   const [location, setLocation] = useState('')
   const [country, setCountry] = useState('France')
+  const [gender, setGender] = useState<'any' | 'female' | 'male'>('any')
 
   // Instagram-specific
   const [igMode, setIgMode] = useState<IgMode>('hashtag')
@@ -98,7 +101,9 @@ export default function SourcingPage() {
     setErrorMsg('')
   }
 
-  const canLaunch = keyword.trim() && location.trim()
+  const canLaunch = source === 'google'
+    ? keywords.length > 0
+    : keyword.trim() !== '' && location.trim() !== ''
   const busy = state === 'loading' || state === 'running'
 
   async function handleLaunch() {
@@ -113,12 +118,20 @@ export default function SourcingPage() {
       ? igMode === 'hashtag'
         ? `${toHashtag(keyword, location)} (hashtag)`
         : `"${keyword} ${location}" (profils)`
-      : `"${keyword}" à ${location}`
+      : `${keywords.join(', ')}${location ? ` à ${location}` : ` — ${country || 'France'}`}`
 
     try {
-      const body: Record<string, string> = { keyword: keyword.trim(), location: location.trim(), source }
-      if (source === 'google') body.country = country.trim() || 'France'
-      if (source === 'instagram') body.mode = igMode
+      const body: Record<string, unknown> = { source }
+      if (source === 'google') {
+        body.keywords = keywords
+        body.location = location.trim()
+        body.country = country.trim() || 'France'
+        if (gender !== 'any') body.gender = gender
+      } else {
+        body.keyword = keyword.trim()
+        body.location = location.trim()
+        body.mode = igMode
+      }
 
       const res = await fetch('/api/trigger-sourcing', {
         method: 'POST',
@@ -127,6 +140,7 @@ export default function SourcingPage() {
       })
       if (res.ok) {
         setLastSearch({ label, source })
+        localStorage.setItem('cxc_last_search_ts', Date.now().toString())
         setState('running')
       } else {
         const data = await res.json()
@@ -270,110 +284,182 @@ export default function SourcingPage() {
                 </div>
               </div>
 
-              {/* Keyword */}
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">
-                  {isInstagram ? 'Niche / profession' : 'Type de profil'}
-                </label>
-                <p className="text-xs text-stone-400 mb-3">
-                  {isInstagram
-                    ? 'Sera combiné avec la ville pour former le hashtag (ex. naturopathe + paris → #naturopatheparis).'
-                    : 'Le métier ou la niche que vous ciblez.'}
-                </p>
-                <div className="relative mb-3">
-                  <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                  <input
-                    type="text"
-                    value={keyword}
-                    onChange={e => setKeyword(e.target.value)}
-                    placeholder="ex. Naturopathe, Coach bien-être…"
-                    className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {KEYWORD_PRESETS.map(k => (
-                    <Pill key={k} label={k} active={keyword === k} rose={isInstagram} onClick={() => setKeyword(k)} />
-                  ))}
-                </div>
-              </div>
-
-              {/* Location */}
-              <div>
-                <label className="block text-sm font-medium text-stone-700 mb-1">Ville ou région</label>
-                <div className="relative mb-3">
-                  <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={e => setLocation(e.target.value)}
-                    placeholder="ex. Paris, Lyon, Bordeaux…"
-                    className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
-                  />
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  {LOCATION_PRESETS.map(l => (
-                    <Pill key={l} label={l} active={location === l} rose={isInstagram} onClick={() => setLocation(l)} />
-                  ))}
-                </div>
-              </div>
-
-              {/* Country — Google only */}
+              {/* ── Google form ── */}
               {!isInstagram && (
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-1">Pays</label>
-                  <div className="relative mb-3">
-                    <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
-                    <input
-                      type="text"
-                      value={country}
-                      onChange={e => setCountry(e.target.value)}
-                      placeholder="ex. France, Belgique, Suisse…"
-                      className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
-                    />
+                <div className="space-y-5">
+                  {/* Country */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-2">Pays</label>
+                    <div className="flex flex-wrap gap-2 mb-2">
+                      {['France', 'Belgique', 'Suisse', 'Canada'].map(c => (
+                        <Pill key={c} label={c} active={country === c} onClick={() => setCountry(c)} />
+                      ))}
+                    </div>
+                    <div className="relative">
+                      <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={country}
+                        onChange={e => setCountry(e.target.value)}
+                        placeholder="ex. France, Belgique, Suisse…"
+                        className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
+                      />
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {['France', 'Belgique', 'Suisse', 'Canada'].map(c => (
-                      <Pill key={c} label={c} active={country === c} onClick={() => setCountry(c)} />
-                    ))}
+
+                  {/* Location */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">
+                      Ville ou région <span className="text-stone-400 font-normal">(optionnel)</span>
+                    </label>
+                    <div className="relative mb-2">
+                      <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={e => setLocation(e.target.value)}
+                        placeholder="Laisser vide pour tout le pays…"
+                        className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <Pill label="Tout le pays" active={location === ''} onClick={() => setLocation('')} />
+                      {['Paris', 'Lyon', 'Marseille', 'Bordeaux', 'Nantes', 'Toulouse', 'Lille'].map(l => (
+                        <Pill key={l} label={l} active={location === l} onClick={() => setLocation(l)} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Jobs multi-select */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Métier(s) ciblé(s) ou autres critères</label>
+                    <p className="text-xs text-stone-400 mb-2">Sélectionnez un ou plusieurs métiers — chacun fera l&apos;objet d&apos;une recherche séparée.</p>
+                    {keywords.length > 0 && (
+                      <div className="flex flex-wrap gap-1.5 mb-2">
+                        {keywords.map(k => (
+                          <span key={k} className="inline-flex items-center gap-1 text-xs px-2.5 py-1 rounded-full bg-sage-500 text-white">
+                            {k}
+                            <button type="button" onClick={() => setKeywords(prev => prev.filter(x => x !== k))} className="hover:opacity-70 leading-none">×</button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="relative mb-2">
+                      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={keywordInput}
+                        onChange={e => setKeywordInput(e.target.value)}
+                        onKeyDown={e => {
+                          if (e.key === 'Enter' && keywordInput.trim()) {
+                            e.preventDefault()
+                            const val = keywordInput.trim()
+                            if (!keywords.includes(val)) setKeywords(prev => [...prev, val])
+                            setKeywordInput('')
+                          }
+                        }}
+                        placeholder="Tapez un métier et appuyez sur Entrée…"
+                        className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {KEYWORD_PRESETS.map(k => (
+                        <Pill
+                          key={k} label={k} active={keywords.includes(k)}
+                          onClick={() => setKeywords(prev => prev.includes(k) ? prev.filter(x => x !== k) : [...prev, k])}
+                        />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Gender */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Genre</label>
+                    <p className="text-xs text-stone-400 mb-2">Google Places ne fournit pas toujours cette donnée — filtre indicatif.</p>
+                    <div className="flex gap-2">
+                      {([['any', 'Tous'], ['female', 'Femme'], ['male', 'Homme']] as const).map(([value, label]) => (
+                        <Pill key={value} label={label} active={gender === value} onClick={() => setGender(value)} />
+                      ))}
+                    </div>
                   </div>
                 </div>
               )}
 
-              {/* Instagram mode toggle */}
+              {/* ── Instagram form ── */}
               {isInstagram && (
-                <div>
-                  <label className="block text-sm font-medium text-stone-700 mb-2">Mode de recherche</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setIgMode('hashtag')}
-                      className={`flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-lg border-2 text-left transition-colors ${
-                        igMode === 'hashtag'
-                          ? 'border-rose-400 bg-rose-50'
-                          : 'border-stone-200 hover:border-rose-200'
-                      }`}
-                    >
-                      <span className={`text-xs font-semibold ${igMode === 'hashtag' ? 'text-rose-600' : 'text-stone-600'}`}># Hashtag</span>
-                      <span className="text-xs text-stone-400">Qui poste sur la niche</span>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setIgMode('profile')}
-                      className={`flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-lg border-2 text-left transition-colors ${
-                        igMode === 'profile'
-                          ? 'border-rose-400 bg-rose-50'
-                          : 'border-stone-200 hover:border-rose-200'
-                      }`}
-                    >
-                      <span className={`text-xs font-semibold ${igMode === 'profile' ? 'text-rose-600' : 'text-stone-600'}`}>@ Profils</span>
-                      <span className="text-xs text-stone-400">Comptes sur la niche</span>
-                    </button>
+                <div className="space-y-5">
+                  {/* Keyword */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Niche / profession</label>
+                    <p className="text-xs text-stone-400 mb-3">Sera combiné avec la ville pour former le hashtag (ex. naturopathe + paris → #naturopatheparis).</p>
+                    <div className="relative mb-3">
+                      <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={keyword}
+                        onChange={e => setKeyword(e.target.value)}
+                        placeholder="ex. Naturopathe, Coach bien-être…"
+                        className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {KEYWORD_PRESETS.map(k => (
+                        <Pill key={k} label={k} active={keyword === k} rose onClick={() => setKeyword(k)} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Location */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-1">Ville ou région</label>
+                    <div className="relative mb-3">
+                      <MapPin size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={e => setLocation(e.target.value)}
+                        placeholder="ex. Paris, Lyon, Bordeaux…"
+                        className={`w-full pl-9 pr-4 py-2.5 text-sm border border-stone-200 rounded-lg focus:outline-none focus:ring-2 ${accentRing}`}
+                      />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {LOCATION_PRESETS.map(l => (
+                        <Pill key={l} label={l} active={location === l} rose onClick={() => setLocation(l)} />
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Mode toggle */}
+                  <div>
+                    <label className="block text-sm font-medium text-stone-700 mb-2">Mode de recherche</label>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setIgMode('hashtag')}
+                        className={`flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-lg border-2 text-left transition-colors ${
+                          igMode === 'hashtag' ? 'border-rose-400 bg-rose-50' : 'border-stone-200 hover:border-rose-200'
+                        }`}
+                      >
+                        <span className={`text-xs font-semibold ${igMode === 'hashtag' ? 'text-rose-600' : 'text-stone-600'}`}># Hashtag</span>
+                        <span className="text-xs text-stone-400">Qui poste sur la niche</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setIgMode('profile')}
+                        className={`flex flex-col items-start gap-0.5 px-3 py-2.5 rounded-lg border-2 text-left transition-colors ${
+                          igMode === 'profile' ? 'border-rose-400 bg-rose-50' : 'border-stone-200 hover:border-rose-200'
+                        }`}
+                      >
+                        <span className={`text-xs font-semibold ${igMode === 'profile' ? 'text-rose-600' : 'text-stone-600'}`}>@ Profils</span>
+                        <span className="text-xs text-stone-400">Comptes sur la niche</span>
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
 
               {/* Preview */}
-              {keyword && location && (
+              {((!isInstagram && keywords.length > 0) || (isInstagram && keyword && location)) && (
                 <div className={`flex items-center gap-2 text-sm text-stone-500 rounded-lg px-4 py-3 border ${
                   isInstagram ? 'bg-rose-50 border-rose-100' : 'bg-stone-50 border-stone-100'
                 }`}>
@@ -383,7 +469,7 @@ export default function SourcingPage() {
                       ? <>Hashtag : <span className="font-semibold text-stone-700">{toHashtag(keyword, location)}</span></>
                       : <>Recherche profils : <span className="font-semibold text-stone-700">&ldquo;{keyword} {location}&rdquo;</span></>
                   ) : (
-                    <>Recherche : <span className="font-semibold text-stone-700">&ldquo;{keyword} {location}, {country || 'France'}&rdquo;</span></>
+                    <>Recherche : <span className="font-semibold text-stone-700">{keywords.join(', ')}{location ? ` — ${location}` : ''}, {country || 'France'}</span></>
                   )}
                 </div>
               )}
@@ -411,7 +497,7 @@ export default function SourcingPage() {
           <ol className="space-y-4">
             {[
               { icon: '🎯', title: 'Choisissez une source', text: 'Google Places pour les pros locales, Instagram pour les créatrices de contenu.' },
-              { icon: '⚙️', title: 'Le workflow se lance', text: 'n8n scrape automatiquement les profils correspondant à vos critères.' },
+              { icon: '⚙️', title: "L'outil se lance automatiquement", text: 'La recherche démarre en arrière-plan et collecte les profils correspondant à vos critères.' },
               { icon: '💾', title: 'Profils enregistrés', text: 'Les prospects sont ajoutés dans l\'onglet "Découverts" sans intervention.' },
               { icon: '✉️', title: 'Plus qu\'à envoyer', text: 'Rédigez votre message (ou générez-le avec l\'IA) et lancez la prise de contact.' },
             ].map(({ icon, title, text }, i) => (
