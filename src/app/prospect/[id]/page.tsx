@@ -170,6 +170,7 @@ export default function ProspectPage() {
   function openGmailCompose() {
     const url = `https://mail.google.com/mail/?view=cm&to=${encodeURIComponent(email)}&su=${encodeURIComponent(emailSubject)}&body=${encodeURIComponent(draft)}`
     window.open(url, '_blank')
+    save({ status: 'sent' })
   }
 
   async function handleDelete() {

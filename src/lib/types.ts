@@ -12,4 +12,5 @@ export interface Prospect {
   contact_email: string | null
   phone: string | null
   source: string | null
+  city: string | null
 }

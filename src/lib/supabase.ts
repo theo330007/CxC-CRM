@@ -26,7 +26,7 @@ export async function getProspects(statuses: ProspectStatus[]): Promise<Prospect
 export async function getProspect(id: string): Promise<Prospect | null> {
   const { data, error } = await db()
     .from('prospects')
-    .select('id, created_at, name, niche, profile_url, bio_data, draft_message, status, contact_email, phone, source')
+    .select('id, created_at, name, niche, profile_url, bio_data, draft_message, status, contact_email, phone, source, city')
     .eq('id', id)
     .single()
   if (error) throw error

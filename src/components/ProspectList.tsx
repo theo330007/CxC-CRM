@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
-import { Search, X, Instagram, LayoutGrid, List, CheckCircle, XCircle } from 'lucide-react'
+import { Search, X, Instagram, LayoutGrid, List, CheckCircle, XCircle, Download } from 'lucide-react'
 import { getProspects, updateProspect } from '@/lib/supabase'
 import type { Prospect, ProspectStatus } from '@/lib/types'
 
@@ -27,28 +27,63 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [view, setView] = useState<'grid' | 'table'>('grid')
-  const [activeNiche, setActiveNiche] = useState<string | null>(null)
-  const [activeSource, setActiveSource] = useState<string | null>(null)
+  const [activeSource, setActiveSource] = useState<string>('')
+  const [activeNiche, setActiveNiche] = useState<string>('')
+  const [activeCity, setActiveCity] = useState<string>('')
+  const [toast, setToast] = useState<string | null>(null)
+
+  const isSentPage = status.includes('sent')
+  const isRejectedPage = status.length === 1 && status[0] === 'rejected'
 
   useEffect(() => {
     setLoading(true)
     getProspects(status).then(setProspects).finally(() => setLoading(false))
   }, [status.join(',')]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function quickAction(e: React.MouseEvent, prospect: Prospect, newStatus: ProspectStatus) {
+  function exportCsv() {
+    const headers = ['Nom', 'Statut', 'Niche', 'Ville', 'Source', 'Email', 'Téléphone', 'Profil', 'Ajouté le']
+    const rows = filtered.map(p => [
+      p.name,
+      p.status,
+      p.niche ?? '',
+      p.city ?? '',
+      p.source ?? '',
+      p.contact_email ?? '',
+      p.phone ?? '',
+      p.profile_url ?? '',
+      new Date(p.created_at).toLocaleDateString('fr-FR'),
+    ])
+    const csv = [headers, ...rows]
+      .map(row => row.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';'))
+      .join('\n')
+    const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `prospects_${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 2500)
+  }
+
+  async function quickAction(e: React.MouseEvent, prospect: Prospect, newStatus: ProspectStatus, label: string) {
     e.stopPropagation()
     await updateProspect(prospect.id, { status: newStatus })
     setProspects(prev => prev.filter(p => p.id !== prospect.id))
+    showToast(label)
   }
 
-  // Unique niches for filter chips
   const niches = useMemo(() => {
     const all = prospects.map(p => p.niche).filter(Boolean) as string[]
     return [...new Set(all)].sort()
   }, [prospects])
 
-  const sources = useMemo(() => {
-    const all = prospects.map(p => p.source?.toLowerCase()).filter(Boolean) as string[]
+  const cities = useMemo(() => {
+    const all = prospects.map(p => p.city).filter(Boolean) as string[]
     return [...new Set(all)].sort()
   }, [prospects])
 
@@ -60,10 +95,11 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
         (p.bio_data ?? '').toLowerCase().includes(search.toLowerCase())
       const matchNiche = !activeNiche || p.niche === activeNiche
       const matchSource = !activeSource || p.source?.toLowerCase() === activeSource
+      const matchCity = !activeCity || p.city === activeCity
       const matchLastSearch = !lastSearchTs || new Date(p.created_at).getTime() >= lastSearchTs
-      return matchSearch && matchNiche && matchSource && matchLastSearch
+      return matchSearch && matchNiche && matchSource && matchCity && matchLastSearch
     })
-  }, [prospects, search, activeNiche, activeSource, lastSearchTs])
+  }, [prospects, search, activeNiche, activeSource, activeCity, lastSearchTs])
 
   if (loading) {
     return (
@@ -74,7 +110,14 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
   }
 
   return (
-    <div>
+    <div className="relative">
+      {/* Toast */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 bg-stone-800 text-white text-sm font-medium px-5 py-3 rounded-xl shadow-lg animate-fade-in">
+          {toast}
+        </div>
+      )}
+
       {/* Search + filters */}
       <div className="mb-5 space-y-3">
         <div className="flex gap-2">
@@ -101,41 +144,49 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
               <List size={15} />
             </button>
           </div>
+          <button
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+            title="Exporter en CSV (Excel)"
+            className="flex items-center gap-1.5 px-3 py-2 text-sm border border-stone-200 rounded-lg bg-white text-stone-600 hover:bg-stone-50 transition-colors disabled:opacity-40"
+          >
+            <Download size={15} /> Export
+          </button>
         </div>
         <div className="flex flex-wrap gap-2">
-          {/* Source filters */}
-          {sources.includes('google') && (
+          <select
+            value={activeSource}
+            onChange={e => setActiveSource(e.target.value)}
+            className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 bg-white text-stone-600 focus:outline-none focus:ring-2 focus:ring-sage-500"
+          >
+            <option value="">Plateforme</option>
+            <option value="google">Google</option>
+            <option value="instagram">Instagram</option>
+          </select>
+          <select
+            value={activeNiche}
+            onChange={e => setActiveNiche(e.target.value)}
+            className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 bg-white text-stone-600 focus:outline-none focus:ring-2 focus:ring-sage-500"
+          >
+            <option value="">Métier</option>
+            {niches.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <select
+            value={activeCity}
+            onChange={e => setActiveCity(e.target.value)}
+            className="text-sm border border-stone-200 rounded-lg px-3 py-1.5 bg-white text-stone-600 focus:outline-none focus:ring-2 focus:ring-sage-500"
+          >
+            <option value="">Ville</option>
+            {cities.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          {(activeSource || activeNiche || activeCity) && (
             <button
-              onClick={() => setActiveSource(activeSource === 'google' ? null : 'google')}
-              className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                activeSource === 'google' ? 'bg-blue-500 text-white border-blue-500' : 'bg-white text-stone-600 border-stone-200 hover:border-blue-300'
-              }`}
+              onClick={() => { setActiveSource(''); setActiveNiche(''); setActiveCity('') }}
+              className="flex items-center gap-1 text-xs text-stone-400 hover:text-stone-600 px-2 py-1.5 rounded-lg border border-stone-200 bg-white transition-colors"
             >
-              Google
+              <X size={12} /> Réinitialiser
             </button>
           )}
-          {sources.includes('instagram') && (
-            <button
-              onClick={() => setActiveSource(activeSource === 'instagram' ? null : 'instagram')}
-              className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                activeSource === 'instagram' ? 'bg-rose-500 text-white border-rose-500' : 'bg-white text-stone-600 border-stone-200 hover:border-rose-300'
-              }`}
-            >
-              Instagram
-            </button>
-          )}
-          {/* Niche filters */}
-          {niches.map(niche => (
-            <button
-              key={niche}
-              onClick={() => setActiveNiche(activeNiche === niche ? null : niche)}
-              className={`text-xs font-medium px-2.5 py-1 rounded-full border transition-colors ${
-                activeNiche === niche ? 'bg-sage-500 text-white border-sage-500' : 'bg-white text-stone-600 border-stone-200 hover:border-sage-300'
-              }`}
-            >
-              {niche}
-            </button>
-          ))}
         </div>
       </div>
 
@@ -143,7 +194,7 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
       {!loading && (
         <p className="text-xs text-stone-400 mb-4">
           {filtered.length} prospect{filtered.length !== 1 ? 's' : ''}
-          {(search || activeNiche) ? ` sur ${prospects.length}` : ''}
+          {(search || activeSource || activeNiche || activeCity) ? ` sur ${prospects.length}` : ''}
         </p>
       )}
 
@@ -199,21 +250,34 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
               </button>
               {/* Quick actions */}
               <div className="flex border-t border-stone-100">
-                <button
-                  onClick={(e) => quickAction(e, prospect, 'drafted')}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors rounded-bl-xl"
-                  title="Pertinent — ajouter à la file"
-                >
-                  <CheckCircle size={13} /> Pertinent
-                </button>
-                <div className="w-px bg-stone-100" />
-                <button
-                  onClick={(e) => quickAction(e, prospect, 'rejected')}
-                  className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-500 hover:bg-rose-50 transition-colors rounded-br-xl"
-                  title="Rejeter"
-                >
-                  <XCircle size={13} /> Rejeter
-                </button>
+                {isRejectedPage ? (
+                  <button
+                    onClick={(e) => quickAction(e, prospect, 'drafted', `${prospect.name} a été envoyé(e) en File d'attente.`)}
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors rounded-b-xl"
+                  >
+                    <CheckCircle size={13} /> Re-Qualifier
+                  </button>
+                ) : (
+                  <>
+                    {!isSentPage && (
+                      <>
+                        <button
+                          onClick={(e) => quickAction(e, prospect, 'drafted', `${prospect.name} a été ajouté(e) à la File d'attente.`)}
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors rounded-bl-xl"
+                        >
+                          <CheckCircle size={13} /> Pertinent
+                        </button>
+                        <div className="w-px bg-stone-100" />
+                      </>
+                    )}
+                    <button
+                      onClick={(e) => quickAction(e, prospect, 'rejected', `${prospect.name} a été rejeté(e).`)}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-500 hover:bg-rose-50 transition-colors ${isSentPage ? 'rounded-b-xl' : 'rounded-br-xl'}`}
+                    >
+                      <XCircle size={13} /> Rejeter
+                    </button>
+                  </>
+                )}
               </div>
             </div>
           ))}
@@ -268,18 +332,31 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
                   </td>
                   <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
                     <div className="flex gap-1">
-                      <button
-                        onClick={(e) => quickAction(e, prospect, 'drafted')}
-                        className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-green-600 hover:bg-green-50 border border-green-200 transition-colors"
-                      >
-                        <CheckCircle size={12} /> Pertinent
-                      </button>
-                      <button
-                        onClick={(e) => quickAction(e, prospect, 'rejected')}
-                        className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-50 border border-rose-200 transition-colors"
-                      >
-                        <XCircle size={12} /> Rejeter
-                      </button>
+                      {isRejectedPage ? (
+                        <button
+                          onClick={(e) => quickAction(e, prospect, 'drafted', `${prospect.name} a été envoyé(e) en File d'attente.`)}
+                          className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-amber-600 hover:bg-amber-50 border border-amber-200 transition-colors"
+                        >
+                          <CheckCircle size={12} /> Re-Qualifier
+                        </button>
+                      ) : (
+                        <>
+                          {!isSentPage && (
+                            <button
+                              onClick={(e) => quickAction(e, prospect, 'drafted', `${prospect.name} a été ajouté(e) à la File d'attente.`)}
+                              className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-green-600 hover:bg-green-50 border border-green-200 transition-colors"
+                            >
+                              <CheckCircle size={12} /> Pertinent
+                            </button>
+                          )}
+                          <button
+                            onClick={(e) => quickAction(e, prospect, 'rejected', `${prospect.name} a été rejeté(e).`)}
+                            className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-rose-500 hover:bg-rose-50 border border-rose-200 transition-colors"
+                          >
+                            <XCircle size={12} /> Rejeter
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
