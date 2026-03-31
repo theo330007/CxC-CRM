@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Sparkles, Inbox, CheckCircle, LayoutDashboard, Search, XCircle } from 'lucide-react'
+import { Sparkles, Inbox, CheckCircle, LayoutDashboard, Search, XCircle, Settings } from 'lucide-react'
 import { getProspectCounts } from '@/lib/supabase'
 import type { ProspectStatus } from '@/lib/types'
 
@@ -68,8 +68,19 @@ export function Sidebar() {
       </nav>
 
       {/* Footer */}
-      <div className="px-6 py-4 border-t border-stone-200">
-        <p className="text-xs text-stone-400">CamilleXCamille © 2025</p>
+      <div className="px-3 py-4 border-t border-stone-200 space-y-1">
+        <Link
+          href="/settings"
+          className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
+            pathname === '/settings'
+              ? 'bg-sage-500 text-white'
+              : 'text-stone-600 hover:bg-stone-200 hover:text-stone-800'
+          }`}
+        >
+          <Settings size={18} />
+          <span>Paramètres</span>
+        </Link>
+        <p className="text-xs text-stone-400 px-3 pt-1">CamilleXCamille © 2025</p>
       </div>
     </aside>
   )

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { getProspect, updateProspect, deleteProspect } from '@/lib/supabase'
 import type { Prospect, ProspectStatus } from '@/lib/types'
+import { loadSettings } from '@/lib/settings'
 import {
   ArrowLeft, Copy, Check, Send, CheckCircle, XCircle,
   Trash2, ExternalLink, Sparkles, Calendar, Star, AlertTriangle, Zap,
@@ -50,13 +51,14 @@ export default function ProspectPage() {
   const [subjectSuggestions, setSubjectSuggestions] = useState<string[]>([])
 
   useEffect(() => {
+    const { subject } = loadSettings()
     getProspect(id).then((p) => {
       if (p) {
         setProspect(p)
         setDraft(p.draft_message ?? '')
         setEmail(p.contact_email ?? '')
         setPhone(p.phone ?? '')
-        setEmailSubject(`Opportunité CxC — ${p.name}`)
+        setEmailSubject(subject)
       }
     })
   }, [id])
@@ -78,6 +80,7 @@ export default function ProspectPage() {
     if (!prospect) return
     setGenerating(true)
     try {
+      const { template } = loadSettings()
       const res = await fetch('/api/generate-draft', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -87,6 +90,7 @@ export default function ProspectPage() {
           bio_data: prospect.bio_data,
           profile_url: prospect.profile_url,
           analysis: analysis ?? null,
+          template,
         }),
       })
       if (res.ok) {

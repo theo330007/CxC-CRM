@@ -34,6 +34,7 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
 
   const isSentPage = status.includes('sent')
   const isRejectedPage = status.length === 1 && status[0] === 'rejected'
+  const isQueuePage = status.length === 1 && status[0] === 'drafted'
 
   useEffect(() => {
     setLoading(true)
@@ -212,10 +213,10 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
       ) : view === 'grid' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {filtered.map((prospect) => (
-            <div key={prospect.id} className="relative bg-white rounded-xl border border-stone-200 hover:shadow-md hover:border-sage-300 transition-all group">
+            <div key={prospect.id} className="relative bg-white rounded-xl border border-stone-200 hover:shadow-md hover:border-sage-300 transition-all group flex flex-col">
               <button
                 onClick={() => router.push(`/prospect/${prospect.id}`)}
-                className="w-full text-left p-5"
+                className="w-full text-left p-5 flex-1"
               >
                 <div className="flex items-start justify-between gap-2 mb-2">
                   <span className="font-semibold text-stone-800 group-hover:text-sage-700 transition-colors">
@@ -253,17 +254,17 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
                 {isRejectedPage ? (
                   <button
                     onClick={(e) => quickAction(e, prospect, 'drafted', `${prospect.name} a été envoyé(e) en File d'attente.`)}
-                    className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors rounded-b-xl"
+                    className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-amber-600 hover:bg-amber-50 transition-colors rounded-b-xl"
                   >
                     <CheckCircle size={13} /> Re-Qualifier
                   </button>
                 ) : (
                   <>
-                    {!isSentPage && (
+                    {!isSentPage && !isQueuePage && (
                       <>
                         <button
                           onClick={(e) => quickAction(e, prospect, 'drafted', `${prospect.name} a été ajouté(e) à la File d'attente.`)}
-                          className="flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors rounded-bl-xl"
+                          className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-green-600 hover:bg-green-50 transition-colors rounded-bl-xl"
                         >
                           <CheckCircle size={13} /> Pertinent
                         </button>
@@ -272,7 +273,7 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
                     )}
                     <button
                       onClick={(e) => quickAction(e, prospect, 'rejected', `${prospect.name} a été rejeté(e).`)}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium text-rose-500 hover:bg-rose-50 transition-colors ${isSentPage ? 'rounded-b-xl' : 'rounded-br-xl'}`}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2.5 text-xs font-medium text-rose-500 hover:bg-rose-50 transition-colors ${isSentPage || isQueuePage ? 'rounded-b-xl' : 'rounded-br-xl'}`}
                     >
                       <XCircle size={13} /> Rejeter
                     </button>
@@ -341,7 +342,7 @@ export function ProspectList({ status, lastSearchTs }: { status: ProspectStatus[
                         </button>
                       ) : (
                         <>
-                          {!isSentPage && (
+                          {!isSentPage && !isQueuePage && (
                             <button
                               onClick={(e) => quickAction(e, prospect, 'drafted', `${prospect.name} a été ajouté(e) à la File d'attente.`)}
                               className="flex items-center gap-1 text-xs font-medium px-2 py-1 rounded-lg text-green-600 hover:bg-green-50 border border-green-200 transition-colors"

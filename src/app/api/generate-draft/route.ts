@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { DEFAULT_TEMPLATE } from '@/lib/settings'
 
 export async function POST(req: NextRequest) {
   const apiKey = process.env.GEMINI_API_KEY
@@ -6,34 +7,37 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'GEMINI_API_KEY non configuré' }, { status: 500 })
   }
 
-  const { name, niche, bio_data, profile_url, analysis } = await req.json()
+  const { name, niche, bio_data, profile_url, analysis, template } = await req.json()
 
+  const usedTemplate: string = template ?? DEFAULT_TEMPLATE
+
+  // Extract first name
+  const prenom = name?.split(' ')[0] ?? name ?? ''
+
+  // Build prompt to generate only the {{personnalisation}} placeholder
   const analysisSection = analysis ? `
 Analyse CxC déjà réalisée sur ce profil :
 - Score : ${analysis.score}/5 — ${analysis.verdict}
 - Résumé : ${analysis.resume}
 - Points forts : ${analysis.points_forts?.join(', ') || 'aucun'}
 - Points d'attention : ${analysis.points_attention?.join(', ') || 'aucun'}
+` : ''
 
-Utilise ces insights pour personnaliser le message : appuie-toi sur les points forts pour montrer que ce profil correspond bien, et reste subtile sur les points d'attention.` : ''
+  const prompt = `Tu dois générer UNE SEULE courte phrase de personnalisation (10-20 mots max) pour remplir le placeholder {{personnalisation}} dans un email d'approche.
 
-  const prompt = `Tu es Camille, co-fondatrice de CamilleXCamille (CxC), un programme d'accompagnement entrepreneurial pour femmes du bien-être.
+Ce placeholder s'insère dans la phrase : "On est tombées sur {{personnalisation}} et on a eu envie de t'écrire."
 
-CxC aide les femmes entrepreneures du bien-être à structurer leur activité sans renoncer à leur authenticité, grâce à une approche humaine et challengeante qui leur permet de développer une vraie autonomie entrepreneuriale.
+La personnalisation doit faire référence à quelque chose de concret et spécifique au profil de cette personne (son compte, sa bio, une publication, son activité).
 
-Tu veux contacter ${name} pour lui proposer de découvrir l'accompagnement CxC, qui pourrait l'aider à développer et structurer son activité.
-
-Voici ce que tu sais sur elle :
+Profil :
+- Nom : ${name}
 - Niche / activité : ${niche ?? 'non précisée'}
-- Profil : ${profile_url ?? 'non disponible'}
-- Bio / description : ${bio_data ?? 'non disponible'}
+- Profil URL : ${profile_url ?? 'non disponible'}
+- Bio : ${bio_data ?? 'non disponible'}
 ${analysisSection}
-Rédige un message d'approche court, chaleureux et personnel (4-6 phrases max).
-- Montre que tu as regardé son profil et que tu t'adresses vraiment à elle
-- Mentionne subtilement que tu aides des femmes comme elle à structurer leur activité
-- Le ton doit être authentique, bienveillant, humain — pas commercial ni générique
-- Termine par une question ouverte ou une invitation légère à échanger
-- Commence directement par le message, sans introduction ni explication`
+Réponds UNIQUEMENT avec la phrase de personnalisation, sans guillemets, sans explication, sans ponctuation finale.
+Exemple : "ton compte dédié au yoga prénatal"
+Exemple : "tes publications sur l'accompagnement en naturopathie"`
 
   const res = await fetch(
     `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -42,7 +46,7 @@ Rédige un message d'approche court, chaleureux et personnel (4-6 phrases max).
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.7, maxOutputTokens: 400 },
+        generationConfig: { temperature: 0.7, maxOutputTokens: 80 },
       }),
     }
   )
@@ -53,6 +57,11 @@ Rédige un message d'approche court, chaleureux et personnel (4-6 phrases max).
   }
 
   const data = await res.json()
-  const message = data.candidates?.[0]?.content?.parts?.[0]?.text ?? ''
+  const personnalisation = (data.candidates?.[0]?.content?.parts?.[0]?.text ?? '').trim().replace(/^["']|["']$/g, '')
+
+  const message = usedTemplate
+    .replace(/\{\{Prénom\}\}/g, prenom)
+    .replace(/\{\{personnalisation\}\}/g, personnalisation)
+
   return NextResponse.json({ message })
 }
