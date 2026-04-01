@@ -1,32 +1,77 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+
+const PAGES = ['', '/contact', '/nous-contacter', '/a-propos', '/mentions-legales']
+
+async function scrapeHtml(url: string): Promise<string> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 8000)
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CxC-bot/1.0)' },
+    })
+    clearTimeout(timer)
+    return await res.text()
+  } catch {
+    clearTimeout(timer)
+    return ''
+  }
+}
+
+function clean(html: string): string {
+  return html
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/gi, '')
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/gi, '')
+    .replace(/<svg[^>]*>[\s\S]*?<\/svg>/gi, '')
+}
+
+function extractEmail(html: string): string | null {
+  const m = html.match(/mailto:([a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,})/i)
+  if (m) return m[1]
+  const p = html.match(/[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}/)
+  return p ? p[0] : null
+}
+
+function extractPhone(html: string): string | null {
+  const m = html.match(/(?:\+33[\s.\-]?|0033[\s.\-]?|0)[1-9](?:[\s.\-]?\d{2}){4}/)
+  return m ? m[0].replace(/\s+/g, ' ').trim() : null
+}
 
 export async function POST(req: NextRequest) {
-  const webhookUrl = process.env.N8N_DEEP_SEARCH_URL
-  if (!webhookUrl) {
-    return NextResponse.json({ error: 'N8N_DEEP_SEARCH_URL non configuré dans .env.local' }, { status: 500 })
-  }
-
   const { id, profile_url } = await req.json()
-  if (!id) {
-    return NextResponse.json({ error: 'Données prospect manquantes.' }, { status: 400 })
+  if (!id || !profile_url) return NextResponse.json({ error: 'Données manquantes.' }, { status: 400 })
+
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!serviceKey) return NextResponse.json({ error: 'SUPABASE_SERVICE_ROLE_KEY non configuré' }, { status: 500 })
+
+  const base = profile_url.replace(/\/$/, '')
+  const urls = PAGES.map(p => base + p)
+
+  // Scrape all pages in parallel
+  const htmlPages = await Promise.all(urls.map(url => scrapeHtml(url)))
+
+  let contact_email: string | null = null
+  let phone: string | null = null
+
+  for (const html of htmlPages) {
+    const cleaned = clean(html)
+    if (!phone) phone = extractPhone(cleaned)
+    if (!contact_email) contact_email = extractEmail(cleaned)
   }
 
-  const res = await fetch(webhookUrl, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ prospect_id: id, profile_url }),
-  })
+  // Prefer email from legal/mentions page (last page = /mentions-legales)
+  const legalEmail = extractEmail(clean(htmlPages[4] ?? ''))
+  if (legalEmail) contact_email = legalEmail
 
-  if (!res.ok) {
-    const text = await res.text()
-    return NextResponse.json({ error: `n8n a répondu avec une erreur: ${text}` }, { status: res.status })
-  }
+  // Update prospect
+  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, serviceKey)
+  const { error } = await admin
+    .from('prospects')
+    .update({ contact_email, phone })
+    .eq('id', id)
 
-  // If n8n returns email/phone directly, forward them; otherwise just confirm
-  try {
-    const data = await res.json()
-    return NextResponse.json({ ok: true, contact_email: data.contact_email ?? data.email ?? null, phone: data.phone ?? null })
-  } catch {
-    return NextResponse.json({ ok: true, email: null, phone: null })
-  }
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ ok: true, contact_email, phone })
 }

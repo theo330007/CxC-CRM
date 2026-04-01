@@ -101,7 +101,7 @@ export async function runGoogleSourcing(params: {
       body: JSON.stringify({ textQuery: query, languageCode: 'fr', maxResultCount: 20, regionCode }),
     })
     const data = await res.json()
-    places = (data.places ?? []).filter((p: Record<string, unknown>) => typeof p.websiteUri === 'string' && (p.websiteUri as string).trim())
+    places = data.places ?? []
   } catch (e) {
     console.error('[sourcing] Google Places error:', e)
     return
@@ -111,47 +111,40 @@ export async function runGoogleSourcing(params: {
 
   // 2. Process each place
   for (const place of places) {
-    const websiteUrl = place.websiteUri as string
-    const contactUrl = websiteUrl.replace(/\/$/, '') + '/contact'
-
-    const [homepageHtml, contactHtml] = await Promise.all([
-      scrapeHtml(websiteUrl, 10000),
-      scrapeHtml(contactUrl, 8000),
-    ])
-
-    const cleanedHome = cleanHtml(homepageHtml)
-    const cleanedContact = cleanHtml(contactHtml)
-
-    const bio_data = extractBio(homepageHtml)
-    const contact_email = extractEmail(cleanedContact) ?? extractEmail(cleanedHome)
-    const instagram_url = extractInstagram(cleanedHome) ?? extractInstagram(cleanedContact)
+    const websiteUrl = (place.websiteUri as string) || null
     const phone = (place.nationalPhoneNumber as string) ?? null
     const city = extractCity((place.addressComponents as Array<{ longText: string; types: string[] }>) ?? [])
+    const name = (place.displayName as { text: string })?.text ?? null
 
-    // 3. Skip if already exists for this user
-    const { data: existing } = await admin
-      .from('prospects')
-      .select('id')
-      .eq('profile_url', websiteUrl)
-      .eq('user_id', user_id)
-      .limit(1)
+    // 3. Skip if already exists for this user (by website or by name if no website)
+    if (websiteUrl) {
+      const { data: existing } = await admin.from('prospects').select('id').eq('profile_url', websiteUrl).eq('user_id', user_id).limit(1)
+      if (existing && existing.length > 0) continue
+    } else if (name) {
+      const { data: existing } = await admin.from('prospects').select('id').eq('name', name).eq('user_id', user_id).limit(1)
+      if (existing && existing.length > 0) continue
+    }
 
-    if (existing && existing.length > 0) continue
+    // 4. Scrape website if available
+    let bio_data = null, contact_email = null, instagram_url = null
+    if (websiteUrl) {
+      const contactUrl = websiteUrl.replace(/\/$/, '') + '/contact'
+      const [homepageHtml, contactHtml] = await Promise.all([
+        scrapeHtml(websiteUrl, 10000),
+        scrapeHtml(contactUrl, 8000),
+      ])
+      const cleanedHome = cleanHtml(homepageHtml)
+      const cleanedContact = cleanHtml(contactHtml)
+      bio_data = extractBio(homepageHtml)
+      contact_email = extractEmail(cleanedContact) ?? extractEmail(cleanedHome)
+      instagram_url = extractInstagram(cleanedHome) ?? extractInstagram(cleanedContact)
+    }
 
-    // 4. Insert
+    // 5. Insert
     const { error } = await admin.from('prospects').insert({
-      name: (place.displayName as { text: string })?.text ?? null,
-      niche: keyword,
-      profile_url: websiteUrl,
-      bio_data,
-      contact_email,
-      phone,
-      instagram_url,
-      gender,
-      city,
-      user_id,
-      source: 'Google',
-      status: 'discovered',
+      name, niche: keyword, profile_url: websiteUrl,
+      bio_data, contact_email, phone, instagram_url,
+      gender, city, user_id, source: 'Google', status: 'discovered',
     })
 
     if (error) console.error('[sourcing] Insert error:', error.message)
