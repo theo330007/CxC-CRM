@@ -98,7 +98,7 @@ export async function runGoogleSourcing(params: {
         'X-Goog-Api-Key': googleApiKey,
         'X-Goog-FieldMask': 'places.displayName.text,places.websiteUri,places.nationalPhoneNumber,places.addressComponents',
       },
-      body: JSON.stringify({ textQuery: query, languageCode: 'fr', maxResultCount: 10, regionCode }),
+      body: JSON.stringify({ textQuery: query, languageCode: 'fr', maxResultCount: 20, regionCode }),
     })
     const data = await res.json()
     places = (data.places ?? []).filter((p: Record<string, unknown>) => typeof p.websiteUri === 'string' && (p.websiteUri as string).trim())
