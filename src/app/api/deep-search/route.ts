@@ -1,23 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { scrapeHtml } from '@/lib/scraper'
 
 const PAGES = ['', '/contact', '/nous-contacter', '/a-propos', '/mentions-legales']
-
-async function scrapeHtml(url: string): Promise<string> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 8000)
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CxC-bot/1.0)' },
-    })
-    clearTimeout(timer)
-    return await res.text()
-  } catch {
-    clearTimeout(timer)
-    return ''
-  }
-}
 
 function clean(html: string): string {
   return html

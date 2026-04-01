@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { scrapeHtml } from './scraper'
 
 const COUNTRY_CODES: Record<string, string> = {
   'france': 'FR', 'belgique': 'BE', 'belgium': 'BE',
@@ -10,21 +11,6 @@ const COUNTRY_CODES: Record<string, string> = {
   'pays-bas': 'NL', 'netherlands': 'NL', 'portugal': 'PT',
 }
 
-async function scrapeHtml(url: string, timeoutMs: number): Promise<string> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
-  try {
-    const res = await fetch(url, {
-      signal: controller.signal,
-      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; CxC-bot/1.0)' },
-    })
-    clearTimeout(timer)
-    return await res.text()
-  } catch {
-    clearTimeout(timer)
-    return ''
-  }
-}
 
 function cleanHtml(html: string): string {
   return html
