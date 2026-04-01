@@ -1,16 +1,13 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { createClient } from '@supabase/supabase-js'
+import { createBrowserClient } from '@supabase/ssr'
 import type { Prospect, ProspectStatus } from './types'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-
-// Untyped client — we cast results manually using our own Prospect interface
-let _client: ReturnType<typeof createClient> | null = null
-
+// Cookie-aware client — auth session is passed automatically, RLS applies
 function db(): any {
-  if (!_client) _client = createClient(supabaseUrl, supabaseAnonKey)
-  return _client
+  return createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  )
 }
 
 export async function getProspects(statuses: ProspectStatus[]): Promise<Prospect[]> {

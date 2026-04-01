@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@/lib/supabase-server'
 
 export async function POST(req: NextRequest) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Non authentifié' }, { status: 401 })
+
   const { source, keyword, keywords, location, country, gender, mode } = await req.json()
 
   const webhookUrl = source === 'instagram'
@@ -16,7 +21,7 @@ export async function POST(req: NextRequest) {
     if (!keyword || !location) {
       return NextResponse.json({ error: 'Keyword et location requis' }, { status: 400 })
     }
-    const payload: Record<string, string> = { keyword, location, source }
+    const payload: Record<string, string> = { keyword, location, source, user_id: user.id }
     if (mode) payload.mode = mode
     const res = await fetch(webhookUrl, {
       method: 'POST',
@@ -41,6 +46,7 @@ export async function POST(req: NextRequest) {
       location: location || '',
       country: country || 'France',
       source,
+      user_id: user.id,
     }
     if (gender && gender !== 'any') payload.gender = gender
 

@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
-import { Sparkles, Inbox, CheckCircle, LayoutDashboard, Search, XCircle, Settings } from 'lucide-react'
+import { Sparkles, Inbox, CheckCircle, LayoutDashboard, Search, XCircle, Settings, LogOut } from 'lucide-react'
 import { getProspectCounts } from '@/lib/supabase'
 import type { ProspectStatus } from '@/lib/types'
+import { createClient } from '@/lib/supabase-browser'
 
 const navItems = [
   { href: '/',           label: 'Dashboard',      Icon: LayoutDashboard, badge: null as ProspectStatus | null },
@@ -18,6 +19,7 @@ const navItems = [
 
 export function Sidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [counts, setCounts] = useState<Record<ProspectStatus, number> | null>(null)
 
   useEffect(() => {
@@ -26,6 +28,15 @@ export function Sidebar() {
     const id = setInterval(() => getProspectCounts().then(setCounts), 30_000)
     return () => clearInterval(id)
   }, [])
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/login')
+    router.refresh()
+  }
+
+  if (pathname === '/login' || pathname === '/signup') return null
 
   return (
     <aside className="w-60 bg-stone-100 border-r border-stone-200 flex flex-col h-full shrink-0">
@@ -80,6 +91,13 @@ export function Sidebar() {
           <Settings size={18} />
           <span>Paramètres</span>
         </Link>
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-stone-500 hover:bg-stone-200 hover:text-stone-800 transition-colors w-full"
+        >
+          <LogOut size={18} />
+          <span>Déconnexion</span>
+        </button>
         <p className="text-xs text-stone-400 px-3 pt-1">CamilleXCamille © 2025</p>
       </div>
     </aside>

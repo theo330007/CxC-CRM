@@ -247,20 +247,20 @@ export default function SourcingPage() {
                   </div>
                 </button>
 
-                <button
-                  onClick={() => pickSource('instagram')}
-                  className="flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-stone-200 hover:border-rose-400 hover:bg-rose-50 transition-all group text-left"
-                >
-                  <div className="w-10 h-10 rounded-full bg-stone-100 group-hover:bg-rose-100 flex items-center justify-center transition-colors">
-                    <Instagram size={20} className="text-stone-500 group-hover:text-rose-500" />
+                <div className="relative flex flex-col items-center gap-3 p-5 rounded-xl border-2 border-stone-100 bg-stone-50 cursor-not-allowed opacity-60 text-left">
+                  <div className="w-10 h-10 rounded-full bg-stone-100 flex items-center justify-center">
+                    <Instagram size={20} className="text-stone-400" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-stone-800 group-hover:text-rose-600">Instagram</p>
+                    <p className="text-sm font-semibold text-stone-500">Instagram</p>
                     <p className="text-xs text-stone-400 mt-0.5 leading-relaxed">
                       Scrape des profils via hashtag niche + ville
                     </p>
                   </div>
-                </button>
+                  <span className="absolute top-2.5 right-2.5 text-xs font-semibold px-2 py-0.5 rounded-full bg-stone-200 text-stone-500">
+                    Bientôt
+                  </span>
+                </div>
               </div>
             </div>
           )}
