@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase-server'
+import { runGoogleSourcing } from '@/lib/google-sourcing'
 
 export async function POST(req: NextRequest) {
   const supabase = await createClient()
@@ -8,57 +9,29 @@ export async function POST(req: NextRequest) {
 
   const { source, keyword, keywords, location, country, gender, mode } = await req.json()
 
-  const webhookUrl = source === 'instagram'
-    ? process.env.N8N_INSTAGRAM_WEBHOOK_URL
-    : process.env.N8N_WEBHOOK_URL
-
-  if (!webhookUrl) {
-    const envVar = source === 'instagram' ? 'N8N_INSTAGRAM_WEBHOOK_URL' : 'N8N_WEBHOOK_URL'
-    return NextResponse.json({ error: `${envVar} non configuré dans .env.local` }, { status: 500 })
-  }
-
+  // Instagram — still via n8n (coming soon in app)
   if (source === 'instagram') {
-    if (!keyword || !location) {
-      return NextResponse.json({ error: 'Keyword et location requis' }, { status: 400 })
-    }
+    const webhookUrl = process.env.N8N_INSTAGRAM_WEBHOOK_URL
+    if (!webhookUrl) return NextResponse.json({ error: 'N8N_INSTAGRAM_WEBHOOK_URL non configuré' }, { status: 500 })
+    if (!keyword || !location) return NextResponse.json({ error: 'Keyword et location requis' }, { status: 400 })
     const payload: Record<string, string> = { keyword, location, source, user_id: user.id }
     if (mode) payload.mode = mode
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      return NextResponse.json({ error: `n8n a répondu avec une erreur: ${text}` }, { status: res.status })
-    }
+    const res = await fetch(webhookUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+    if (!res.ok) return NextResponse.json({ error: `n8n erreur: ${await res.text()}` }, { status: res.status })
     return NextResponse.json({ ok: true })
   }
 
-  // Google: one webhook call per keyword
-  if (!keywords?.length) {
-    return NextResponse.json({ error: 'Au moins un métier requis' }, { status: 400 })
-  }
+  // Google — run in-app, respond immediately then process in background
+  if (!keywords?.length) return NextResponse.json({ error: 'Au moins un métier requis' }, { status: 400 })
 
   for (const kw of keywords as string[]) {
-    const payload: Record<string, string> = {
+    runGoogleSourcing({
       keyword: kw,
       location: location || '',
       country: country || 'France',
-      source,
+      gender: gender && gender !== 'any' ? gender : null,
       user_id: user.id,
-    }
-    if (gender && gender !== 'any') payload.gender = gender
-
-    const res = await fetch(webhookUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      return NextResponse.json({ error: `n8n erreur pour "${kw}": ${text}` }, { status: res.status })
-    }
+    }).catch(console.error)
   }
 
   return NextResponse.json({ ok: true })
