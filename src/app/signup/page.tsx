@@ -26,6 +26,7 @@ export default function SignupPage() {
       password,
       options: {
         data: { name, business_name: businessName },
+        emailRedirectTo: `${window.location.origin}/auth/callback`,
       },
     })
     if (error) {
